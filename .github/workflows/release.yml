@@ -1,0 +1,63 @@
+name: Build and Release APK
+
+on:
+  # Triggers the workflow when you push a version tag (e.g., v2.0.12)
+  push:
+    tags:
+      - 'v*'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch: 
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to create a GitHub Release
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # Fetches submodules if you have any
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21' # Your project targets Java 21
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MorphTune-Debug-APK
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MorphTune-Release-Unsigned-APK
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Publish to GitHub Releases
+        # Only run this step if the workflow was triggered by a tag push
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
