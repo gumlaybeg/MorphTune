@@ -10,6 +10,8 @@ data class NavigationEndpoint(
     val searchEndpoint: SearchEndpoint? = null,
     val queueAddEndpoint: QueueAddEndpoint? = null,
     val shareEntityEndpoint: ShareEntityEndpoint? = null,
+    val feedbackEndpoint: FeedbackEndpoint? = null,
+    val continuationCommand: ContinuationItemRenderer.ContinuationEndpoint.ContinuationCommand? = null
 ) {
     val endpoint: Endpoint?
         get() =
@@ -23,4 +25,7 @@ data class NavigationEndpoint(
     val anyWatchEndpoint: WatchEndpoint?
         get() = watchEndpoint
             ?: watchPlaylistEndpoint
+
+    @Serializable
+    data class FeedbackEndpoint(val feedbackToken: String)
 }
