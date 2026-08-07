@@ -13,8 +13,7 @@ data class YouTubeClient(
     val loginRequired: Boolean = false,
     val useSignatureTimestamp: Boolean = false,
     val isEmbedded: Boolean = false,
-    // val origin: String? = null,
-    // val referer: String? = null,
+    val useWebPoTokens: Boolean = false
 ) {
     fun toContext(locale: YouTubeLocale, visitorData: String?, dataSyncId: String?) = Context(
         client = Context.Client(
@@ -31,9 +30,6 @@ data class YouTubeClient(
     )
 
     companion object {
-        /**
-         * Should be the latest Firefox ESR version.
-         */
         const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
 
         const val ORIGIN_YOUTUBE_MUSIC = "https://music.youtube.com"
@@ -54,6 +50,7 @@ data class YouTubeClient(
             userAgent = USER_AGENT_WEB,
             loginSupported = true,
             useSignatureTimestamp = true,
+            useWebPoTokens = true
         )
 
         val WEB_CREATOR = YouTubeClient(
