@@ -6,14 +6,32 @@ import com.arturo254.innertube.models.ArtistItem
 import com.arturo254.innertube.models.BrowseEndpoint
 import com.arturo254.innertube.models.MusicCarouselShelfRenderer
 import com.arturo254.innertube.models.MusicTwoRowItemRenderer
+import com.arturo254.innertube.models.NavigationEndpoint
 import com.arturo254.innertube.models.PlaylistItem
+import com.arturo254.innertube.models.SectionListRenderer
 import com.arturo254.innertube.models.SongItem
 import com.arturo254.innertube.models.YTItem
 import com.arturo254.innertube.models.oddElements
 
 data class HomePage(
+    val chips: List<Chip>? = null,
     val sections: List<Section>,
+    val continuation: String? = null
 ) {
+    data class Chip(
+        val title: String,
+        val endpoint: NavigationEndpoint?
+    ) {
+        companion object {
+            fun fromChipCloudChipRenderer(renderer: SectionListRenderer.Header.ChipCloudRenderer.Chip.ChipCloudChipRenderer): Chip? {
+                return Chip(
+                    title = renderer.text?.runs?.firstOrNull()?.text ?: return null,
+                    endpoint = renderer.navigationEndpoint
+                )
+            }
+        }
+    }
+
     data class Section(
         val title: String,
         val label: String?,
@@ -123,12 +141,4 @@ data class HomePage(
             }
         }
     }
-
-//    fun filterExplicit(enabled: Boolean = true) =
-//        if (enabled) {
-//            copy(sections = sections.map {
-//                it.copy(items = it.items.filterExplicit())
-//            })
-//        } else this
-
 }
