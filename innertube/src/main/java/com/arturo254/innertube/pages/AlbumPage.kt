@@ -7,10 +7,10 @@ import com.arturo254.innertube.models.Artist
 import com.arturo254.innertube.models.MusicResponsiveHeaderRenderer
 import com.arturo254.innertube.models.MusicResponsiveListItemRenderer
 import com.arturo254.innertube.models.SongItem
+import com.arturo254.innertube.models.Run
 import com.arturo254.innertube.models.oddElements
 import com.arturo254.innertube.utils.parseTime
 import com.arturo254.innertube.models.getItems
-import com.arturo254.innertube.models.oddElements
 import com.arturo254.innertube.models.response.BrowseResponse
 import com.arturo254.innertube.models.splitBySeparator
 
@@ -18,6 +18,9 @@ data class AlbumPage(
     val album: AlbumItem,
     val songs: List<SongItem>,
     val otherVersions: List<AlbumItem>,
+    val description: String? = null,
+    val descriptionRuns: List<Run>? = null,
+    val releasesForYou: List<AlbumItem> = emptyList()
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? {
