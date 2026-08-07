@@ -2,11 +2,12 @@ package com.arturo254.innertube
 
 import com.arturo254.innertube.models.Context
 import com.arturo254.innertube.models.MediaInfo
-import com.arturo254.innertube.models.ReturnYouTubeDislikeResponse
 import com.arturo254.innertube.models.YouTubeClient
 import com.arturo254.innertube.models.YouTubeLocale
 import com.arturo254.innertube.models.body.*
 import com.arturo254.innertube.models.response.NextResponse
+import com.arturo254.innertube.models.response.ReturnYouTubeDislikeResponse
+import com.arturo254.innertube.models.YouTubeDataPage
 import com.arturo254.innertube.utils.parseCookieString
 import com.arturo254.innertube.utils.sha1
 import com.arturo254.innertube.models.IpVersion
@@ -33,10 +34,6 @@ import kotlinx.coroutines.delay
 import java.util.*
 import kotlin.io.encoding.Base64
 
-/**
- * Provide access to InnerTube endpoints.
- * For making HTTP requests, not parsing response.
- */
 @OptIn(ExperimentalEncodingApi::class)
 class InnerTube {
     private var httpClient = createClient()
@@ -89,30 +86,18 @@ class InnerTube {
             deflate(0.8F)
         }
 
-        // Enhanced network configuration for better performance
         engine {
             config {
-                // Connection pool settings for better connection reuse
                 connectionPool(
                     okhttp3.ConnectionPool(
-                        10, // maxIdleConnections
-                        5, // keepAliveDuration
-                        java.util.concurrent.TimeUnit.MINUTES
+                        10, 5, java.util.concurrent.TimeUnit.MINUTES
                     )
                 )
-                
-                // Timeout configurations
                 connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
                 readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
                 writeTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
-                
-                // Enable HTTP/2 for better performance
                 protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1))
-                
-                // Retry on connection failure
                 retryOnConnectionFailure(true)
-                
-                // Apply IP version filtering
                 dns(object : Dns {
                     override fun lookup(hostname: String): List<InetAddress> {
                         val addresses = Dns.SYSTEM.lookup(hostname)
@@ -124,12 +109,10 @@ class InnerTube {
                     }
                 })
 
-                // Apply proxy configuration
                 this@InnerTube.proxy?.let { proxyConfig ->
                     proxy(proxyConfig)
                 }
                 
-                // Apply proxy authentication
                 this@InnerTube.proxyAuth?.let { auth ->
                     proxyAuthenticator { _, response ->
                         response.request.newBuilder()
@@ -140,7 +123,6 @@ class InnerTube {
             }
         }
 
-        // Request timeout configuration
         install(HttpTimeout) {
             requestTimeoutMillis = 60000
             connectTimeoutMillis = 30000
@@ -156,7 +138,7 @@ class InnerTube {
         contentType(ContentType.Application.Json)
         headers {
             append("X-Goog-Api-Format-Version", "1")
-            append("X-YouTube-Client-Name", client.clientId /* Not a typo. The Client-Name header does contain the client id. */)
+            append("X-YouTube-Client-Name", client.clientId)
             append("X-YouTube-Client-Version", client.clientVersion)
             append("X-Origin", YouTubeClient.ORIGIN_YOUTUBE_MUSIC)
             append("Referer", YouTubeClient.REFERER_YOUTUBE_MUSIC)
@@ -175,11 +157,6 @@ class InnerTube {
         parameter("prettyPrint", false)
     }
 
-    /**
-     * Simple retry wrapper for transient IO errors (socket aborts, timeouts).
-     * Retries the given block up to [maxAttempts] times with exponential backoff.
-     * Cancellation is respected since [delay] will throw if the coroutine is cancelled.
-     */
     private suspend fun <T> withRetry(
         maxAttempts: Int = 3,
         initialDelay: Long = 500L,
@@ -536,8 +513,8 @@ class InnerTube {
     suspend fun removeFromPlaylist(
         client: YouTubeClient,
         playlistId: String,
-        videoId: String,
-        setVideoId: String,
+        videoId: String?,
+        setVideoId: String?,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
             ytClient(client, setLogin = true)
@@ -559,7 +536,7 @@ class InnerTube {
     suspend fun moveSongPlaylist(
         client: YouTubeClient,
         playlistId: String,
-        setVideoId: String,
+        setVideoId: String?,
         successorSetVideoId: String?,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
@@ -710,10 +687,10 @@ class InnerTube {
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
         runCatching {
-            val response = next(client = YouTubeClient.WEB, videoId, null, null, null, null, null).body<NextResponse>()
+            val response = next(client = YouTubeClient.WEB, videoId, null, null, null, null, null).body<YouTubeDataPage>()
 
             val baseForInfo =
-                response.contents.twoColumnWatchNextResults
+                response.contents?.twoColumnWatchNextResults
                     ?.results
                     ?.results
                     ?.content
@@ -722,7 +699,7 @@ class InnerTube {
                     }?.videoSecondaryInfoRenderer
 
             val baseForTitle =
-                response.contents.twoColumnWatchNextResults
+                response.contents?.twoColumnWatchNextResults
                     ?.results
                     ?.results
                     ?.content
