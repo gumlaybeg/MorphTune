@@ -101,6 +101,8 @@ data class BrowseResponse(
             val playButton: Button?,
             val startRadioButton: Button?,
             val subscriptionButton: SubscriptionButton?,
+            val subscriptionButton2: SubscriptionButton? = null,
+            val monthlyListenerCount: Runs? = null,
             val menu: Menu,
         )
 
@@ -167,6 +169,7 @@ data class BrowseResponse(
         @Serializable
         data class MicroformatDataRenderer(
             val urlCanonical: String?,
+            val description: String? = null
         )
     }
 }
