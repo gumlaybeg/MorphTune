@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ContinuationItemRenderer(
     val continuationEndpoint: ContinuationEndpoint?,
+    val button: Button? = null
 ) {
     @Serializable
     data class ContinuationEndpoint(
