@@ -26,13 +26,8 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -40,10 +35,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Image
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -62,8 +59,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.minimumInteractiveComponentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -82,11 +83,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -97,6 +98,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -109,7 +111,6 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -124,6 +125,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -134,6 +136,7 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -144,7 +147,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.navigation.NavController
@@ -157,6 +159,8 @@ import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.R
 import com.arturo254.opentune.checkForUpdates
 import com.arturo254.opentune.isNewerVersion
+import com.arturo254.opentune.UpdateDownloadDialog
+import com.arturo254.opentune.DownloadStatus
 import com.arturo254.opentune.ui.component.AvatarPreferenceManager
 import com.arturo254.opentune.ui.component.AvatarSelection
 import com.arturo254.opentune.ui.component.ChangelogScreen
@@ -164,189 +168,10 @@ import com.arturo254.opentune.ui.component.TopSearch
 import com.arturo254.opentune.ui.utils.backToMain
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
+import com.arturo254.opentune.constants.*
 
 // ==========================================
-// 1. DIMENSIONS & ANIMATION CONFIGURATION
-// ==========================================
-
-object SettingsDimensions {
-    val GroupCardCornerRadius = 16.dp
-    val QuickActionCardCornerRadius = 20.dp
-    val IntegrationPillCornerRadius = 14.dp
-    val BannerCardCornerRadius = 20.dp
-    val HeroCardCornerRadius = 24.dp
-    val RowIconCornerRadius = 12.dp
-
-    val ScreenHorizontalPadding = 16.dp
-    val CardInternalPadding = 16.dp
-    val SectionSpacing = 14.dp
-    val RowVerticalPadding = 14.dp
-    val RowHorizontalPadding = 16.dp
-
-    val RowIconSize = 36.dp
-    val RowIconInnerSize = 20.dp
-    val QuickActionIconSize = 40.dp
-    val QuickActionIconInnerSize = 22.dp
-    val HeroIconSize = 56.dp
-    val HeroIconInnerSize = 30.dp
-    val IntegrationIconSize = 28.dp
-    val IntegrationIconInnerSize = 16.dp
-    val BannerIconSize = 44.dp
-    val BannerIconInnerSize = 22.dp
-    val ChevronSize = 18.dp
-
-    val DividerThickness = 0.5.dp
-    val DividerStartIndent = 60.dp
-
-    val SectionHeaderBottomPadding = 6.dp
-    val SectionHeaderHorizontalPadding = 20.dp
-
-    val QuickActionTileAspectRatio = 1.4f
-
-    val CompactColumns = 2
-    val MediumColumns = 4
-    val ExpandedColumns = 4
-
-    val MediumPaneLeftWeight = 0.42f
-    val MediumPaneRightWeight = 0.58f
-    val ExpandedListPaneWidth = 380.dp
-}
-
-object SettingsAnimations {
-    val PressScale = 0.97f
-    val TilePressScale = 0.94f
-    val PillPressScale = 0.95f
-    val IconPressRotation = 5f
-    val PillPressLift = (-2).dp
-
-    val EntranceFadeDuration = 300
-    val EntranceSlideDuration = 350
-    val StaggerDelayPerItem = 80
-    val ExitFadeDuration = 200
-
-    fun <T> pressSpring() = spring<T>(stiffness = Spring.StiffnessHigh)
-    fun <T> entranceSpring() = spring<T>(
-        stiffness = Spring.StiffnessLow,
-        dampingRatio = 0.85f,
-    )
-}
-
-// ==========================================
-// 2. DATA MODELS
-// ==========================================
-
-data class SettingsQuickAction(
-    val icon: Painter,
-    val label: String,
-    val onClick: () -> Unit,
-    val accentColor: Color,
-)
-
-data class SettingsGroup(
-    val title: String,
-    val items: List<SettingsItem>,
-)
-
-data class SettingsItem(
-    val icon: Painter,
-    val title: String,
-    val subtitle: String? = null,
-    val badge: String? = null,
-    val showUpdateIndicator: Boolean = false,
-    val accentColor: Color = Color.Unspecified,
-    val keywords: List<String> = emptyList(),
-    val onClick: () -> Unit,
-)
-
-data class SettingsIntegrationAction(
-    val icon: Painter,
-    val label: String,
-    val onClick: () -> Unit,
-    val accentColor: Color,
-)
-
-enum class SettingsLayoutMode {
-    COMPACT,
-    MEDIUM,
-    EXPANDED,
-}
-
-data class SettingsContentState(
-    val quickActions: List<SettingsQuickAction>,
-    val integrations: List<SettingsIntegrationAction>,
-    val groups: List<SettingsGroup>,
-    val internalGroup: SettingsGroup?,
-    val showPermissionBanner: Boolean,
-    val showUpdateBanner: Boolean,
-    val latestVersion: String,
-    val isSearchActive: Boolean,
-    val hasSearchResults: Boolean,
-    val onRequestPermission: () -> Unit,
-    val onUpdateClick: () -> Unit,
-)
-
-// ==========================================
-// 3. SEARCH & FILTER UTILS
-// ==========================================
-
-fun filterQuickActions(
-    actions: List<SettingsQuickAction>,
-    query: String,
-): List<SettingsQuickAction> {
-    if (query.isBlank()) return actions
-    return actions.filter { it.label.contains(query, ignoreCase = true) }
-}
-
-fun filterSettingsGroups(
-    groups: List<SettingsGroup>,
-    query: String,
-): List<SettingsGroup> {
-    if (query.isBlank()) return groups
-    return groups.mapNotNull { group ->
-        if (group.title.contains(query, ignoreCase = true)) {
-            group
-        } else {
-            val filtered = group.items.filter { matchesQuery(it, query) }
-            if (filtered.isEmpty()) null else group.copy(items = filtered)
-        }
-    }
-}
-
-fun matchesQuery(
-    item: SettingsItem,
-    query: String,
-): Boolean {
-    if (item.title.contains(query, ignoreCase = true)) return true
-    if (item.subtitle?.contains(query, ignoreCase = true) == true) return true
-    if (item.badge?.contains(query, ignoreCase = true) == true) return true
-    return item.keywords.any { keyword ->
-        keyword.contains(query, ignoreCase = true) ||
-            query.contains(keyword, ignoreCase = true)
-    }
-}
-
-fun filterInternalItems(
-    items: List<SettingsItem>,
-    query: String,
-): List<SettingsItem> {
-    if (query.isBlank()) return emptyList()
-    return items.filter { matchesQuery(it, query) }
-}
-
-fun filterIntegrations(
-    integrations: List<SettingsIntegrationAction>,
-    query: String,
-): List<SettingsIntegrationAction> {
-    if (query.isBlank()) return integrations
-    return integrations.filter { it.label.contains(query, ignoreCase = true) }
-}
-
-// ==========================================
-// 4. MAIN COMPOSABLES & LAYOUTS
+// 1. MAIN SETTINGS CONTAINER COMPOSABLE
 // ==========================================
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -477,7 +302,7 @@ fun SettingsScreen(
 
     val internalGroup = if (filteredInternalItems.isNotEmpty()) {
         SettingsGroup(
-            title = stringResource(R.string.experiment_settings),
+            title = stringResource(R.string.advanced),
             items = filteredInternalItems,
         )
     } else null
@@ -517,9 +342,9 @@ fun SettingsScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(
-                            onClick = navController::navigateUp,
-                            onLongClick = navController::backToMain,
+                        SettingsIconButton(
+                            onClick = { navController.navigateUp() },
+                            onLongClick = { navController.backToMain() }
                         ) {
                             Icon(
                                 painterResource(R.drawable.arrow_back),
@@ -528,7 +353,7 @@ fun SettingsScreen(
                         }
                     },
                     actions = {
-                        IconButton(
+                        SettingsIconButton(
                             onClick = { isSearching = true }
                         ) {
                             Icon(
@@ -578,8 +403,13 @@ fun SettingsScreen(
                     },
                     placeholder = { Text(text = stringResource(R.string.search)) },
                     leadingIcon = {
-                        IconButton(
-                            onClick = { resetSearch() }
+                        SettingsIconButton(
+                            onClick = { resetSearch() },
+                            onLongClick = {
+                                if (queryText.isBlank()) {
+                                    navController.backToMain()
+                                }
+                            }
                         ) {
                             Icon(
                                 painterResource(R.drawable.arrow_back),
@@ -590,7 +420,7 @@ fun SettingsScreen(
                     trailingIcon = {
                         Row {
                             if (query.text.isNotBlank()) {
-                                IconButton(
+                                SettingsIconButton(
                                     onClick = { query = TextFieldValue() }
                                 ) {
                                     Icon(
@@ -671,19 +501,40 @@ fun SettingsScreen(
     }
 }
 
+// ==========================================
+// 2. HELPER BUTTONS (SettingsIconButton)
+// ==========================================
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun resolveLayoutMode(): SettingsLayoutMode {
-    val configuration = LocalConfiguration.current
-    val width = configuration.screenWidthDp
-    return when {
-        width >= 840 -> SettingsLayoutMode.EXPANDED
-        width >= 600 -> SettingsLayoutMode.MEDIUM
-        else -> SettingsLayoutMode.COMPACT
+fun SettingsIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(CircleShape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick ?: {},
+                enabled = enabled,
+                role = Role.Button,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, radius = 24.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
     }
 }
 
 // ==========================================
-// 5. PROFILE HEADER & SYSTEM COMPONENTS
+// 3. PROFILE HEADER & SYSTEM COMPONENTS
 // ==========================================
 
 @Composable
@@ -904,7 +755,7 @@ fun SettingsPermissionBanner(
             Spacer(modifier = Modifier.width(12.dp))
 
             Button(
-                onClick = onRequestPermission,
+                onClick = { onRequestPermission() },
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -989,7 +840,7 @@ fun SettingsUpdateBanner(
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp) )
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -1250,87 +1101,8 @@ fun SettingsRow(
 }
 
 // ==========================================
-// 6. ADAPTIVE LAYOUTS
+// 8. ADAPTIVE LAYOUTS
 // ==========================================
-
-@Composable
-fun AdaptiveSettingsLayout(
-    state: SettingsContentState,
-    modifier: Modifier = Modifier,
-    listState: LazyListState = rememberLazyListState(),
-    topPadding: Dp = 0.dp,
-) {
-    val layoutMode = resolveLayoutMode()
-
-    var heroVisible by remember { mutableStateOf(false) }
-    var bannerVisible by remember { mutableStateOf(false) }
-    var quickActionsVisible by remember { mutableStateOf(false) }
-    var integrationsVisible by remember { mutableStateOf(false) }
-    var categoriesVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        val anim = Animatable(0f)
-        anim.animateTo(1f, tween(50))
-        heroVisible = true
-        anim.animateTo(1f, tween(60))
-        bannerVisible = true
-        anim.animateTo(1f, tween(60))
-        quickActionsVisible = true
-        anim.animateTo(1f, tween(70))
-        integrationsVisible = true
-        anim.animateTo(1f, tween(70))
-        categoriesVisible = true
-    }
-
-    val quickActionColumns = when (layoutMode) {
-        SettingsLayoutMode.COMPACT -> SettingsDimensions.CompactColumns
-        SettingsLayoutMode.MEDIUM -> SettingsDimensions.MediumColumns
-        SettingsLayoutMode.EXPANDED -> SettingsDimensions.ExpandedColumns
-    }
-
-    when (layoutMode) {
-        SettingsLayoutMode.COMPACT -> {
-            CompactSettingsLayout(
-                state = state,
-                listState = listState,
-                quickActionColumns = quickActionColumns,
-                heroVisible = heroVisible,
-                bannerVisible = bannerVisible,
-                quickActionsVisible = quickActionsVisible,
-                integrationsVisible = integrationsVisible,
-                categoriesVisible = categoriesVisible,
-                topPadding = topPadding,
-                modifier = modifier,
-            )
-        }
-        SettingsLayoutMode.MEDIUM -> {
-            MediumSettingsLayout(
-                state = state,
-                quickActionColumns = quickActionColumns,
-                heroVisible = heroVisible,
-                bannerVisible = bannerVisible,
-                quickActionsVisible = quickActionsVisible,
-                integrationsVisible = integrationsVisible,
-                categoriesVisible = categoriesVisible,
-                topPadding = topPadding,
-                modifier = modifier,
-            )
-        }
-        SettingsLayoutMode.EXPANDED -> {
-            ExpandedSettingsLayout(
-                state = state,
-                quickActionColumns = quickActionColumns,
-                heroVisible = heroVisible,
-                bannerVisible = bannerVisible,
-                quickActionsVisible = quickActionsVisible,
-                integrationsVisible = integrationsVisible,
-                categoriesVisible = categoriesVisible,
-                topPadding = topPadding,
-                modifier = modifier,
-            )
-        }
-    }
-}
 
 @Composable
 private fun CompactSettingsLayout(
@@ -1847,7 +1619,200 @@ private fun ExpandedSettingsLayout(
 }
 
 // ==========================================
-// 7. DATA BUILDERS & ROUTING MAPPING
+// 9. QUICK ACTION COMPONENT
+// ==========================================
+
+@Composable
+fun SettingsQuickActionsSection(
+    actions: List<SettingsQuickAction>,
+    columns: Int = SettingsDimensions.CompactColumns,
+    modifier: Modifier = Modifier,
+) {
+    if (actions.isEmpty()) return
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        val rows = actions.chunked(columns)
+        rows.forEach { rowActions ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                rowActions.forEach { action ->
+                    QuickActionCard(
+                        action = action,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(columns - rowActions.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActionCard(
+    action: SettingsQuickAction,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.TilePressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "tileScale",
+    )
+    val iconRotation by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.IconPressRotation else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "iconRotation",
+    )
+
+    Surface(
+        modifier = modifier
+            .scale(scale)
+            .aspectRatio(SettingsDimensions.QuickActionTileAspectRatio),
+        shape = RoundedCornerShape(SettingsDimensions.QuickActionCardCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        onClick = action.onClick,
+        interactionSource = interactionSource,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            action.accentColor.copy(alpha = 0.10f),
+                            Color.Transparent,
+                        ),
+                    ),
+                )
+                .padding(14.dp),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(SettingsDimensions.QuickActionIconSize)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(action.accentColor.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = action.icon,
+                        contentDescription = action.label,
+                        tint = action.accentColor,
+                        modifier = Modifier
+                            .size(SettingsDimensions.QuickActionIconInnerSize)
+                            .graphicsLayer { rotationZ = iconRotation },
+                    )
+                }
+
+                Text(
+                    text = action.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+// ==========================================
+// 10. INTEGRATIONS BAR
+// ==========================================
+
+@Composable
+fun SettingsIntegrationsSection(
+    integrations: List<SettingsIntegrationAction>,
+    modifier: Modifier = Modifier,
+) {
+    if (integrations.isEmpty()) return
+
+    LazyRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(
+            count = integrations.size,
+            key = { integrations[it].label },
+        ) { index ->
+            IntegrationPill(action = integrations[index])
+        }
+    }
+}
+
+@Composable
+fun IntegrationPill(
+    action: SettingsIntegrationAction,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PillPressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "pillScale",
+    )
+    val lift by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PillPressLift.value else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "pillLift",
+    )
+
+    Surface(
+        modifier = modifier
+            .scale(scale)
+            .graphicsLayer { translationY = lift },
+        shape = RoundedCornerShape(SettingsDimensions.IntegrationPillCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        onClick = action.onClick,
+        interactionSource = interactionSource,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.IntegrationIconSize)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(action.accentColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = action.icon,
+                    contentDescription = null,
+                    tint = action.accentColor,
+                    modifier = Modifier.size(SettingsDimensions.IntegrationIconInnerSize),
+                )
+            }
+
+            Text(
+                text = action.label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+// ==========================================
+// 11. BUILDERS & ACTION MAPPINGS
 // ==========================================
 
 @Composable
@@ -1931,7 +1896,7 @@ fun buildSettingsGroups(
                     SettingsItem(
                         icon = painterResource(R.drawable.restore),
                         title = stringResource(R.string.backup_restore),
-                        subtitle = stringResource(R.string.action_backup),
+                        subtitle = stringResource(R.string.backup),
                         accentColor = MaterialTheme.colorScheme.tertiary,
                         keywords = listOf("backup", "restore", "import", "export", "copia", "seguridad", "restauracion"),
                         onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
@@ -2034,7 +1999,7 @@ fun buildInternalItems(
         SettingsItem(
             icon = painterResource(R.drawable.restore),
             title = stringResource(R.string.backup_restore),
-            subtitle = stringResource(R.string.action_backup),
+            subtitle = stringResource(R.string.backup),
             accentColor = MaterialTheme.colorScheme.tertiary,
             keywords = listOf("backup", "restore", "import", "export", "migration"),
             onClick = { resetSearch(); navController.navigate("settings/backup_restore") },
@@ -2042,7 +2007,7 @@ fun buildInternalItems(
         SettingsItem(
             icon = painterResource(R.drawable.discord),
             title = stringResource(R.string.discord_integration),
-            subtitle = stringResource(R.string.integration),
+            subtitle = stringResource(R.string.discord_integration),
             accentColor = Color(0xFF5865F2),
             keywords = listOf("discord", "rpc", "rich presence", "status", "activity"),
             onClick = { resetSearch(); navController.navigate("settings/discord") },
