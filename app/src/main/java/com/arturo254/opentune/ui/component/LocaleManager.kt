@@ -2,6 +2,7 @@ package com.arturo254.opentune.ui.component
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -449,20 +450,31 @@ class LocaleManager private constructor(private val context: Context) {
 
     fun restartApp(context: Context) {
         try {
-            val activity = context.findActivity()
+            val activity = findActivity(context)
             if (activity != null) {
                 activity.recreate()
             } else {
                 val packageManager = context.packageManager
                 val intent = packageManager.getLaunchIntentForPackage(context.packageName)
                 intent?.let {
-                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(it)
                 }
             }
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error restarting application")
         }
+    }
+
+    private fun findActivity(context: Context): Activity? {
+        var currentContext = context
+        while (currentContext is ContextWrapper) {
+            if (currentContext is Activity) {
+                return currentContext
+            }
+            currentContext = currentContext.baseContext
+        }
+        return null
     }
 
     fun resetChangeState() {
@@ -1007,10 +1019,4 @@ abstract class LocaleAwareApplication : android.app.Application() {
         super.onConfigurationChanged(newConfig)
         localeManager.clearCache()
     }
-}
-
-private tailrec fun Context.findActivity(): Activity? {
-    if (this is Activity) return this
-    if (this is android.content.ContextWrapper) return baseContext.findActivity()
-    return null
 }
