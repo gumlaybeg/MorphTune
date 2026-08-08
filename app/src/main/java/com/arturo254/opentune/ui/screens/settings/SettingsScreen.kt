@@ -1,19 +1,14 @@
 package com.arturo254.opentune.ui.screens.settings
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
 import android.app.DownloadManager
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,15 +17,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.spring
-import androidx.compose.animation.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -44,23 +38,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -68,24 +59,19 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import androidx.window.core.layout.WindowSizeClass
-import coil.ImageLoader
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
-import coil.request.CachePolicy
 import coil.request.ImageRequest
-import com.arturo254.innertube.YouTube
 import com.arturo254.innertube.utils.parseCookieString
 import com.arturo254.opentune.BuildConfig
 import com.arturo254.opentune.LocalPlayerAwareWindowInsets
@@ -101,6 +87,11 @@ import com.arturo254.opentune.utils.rememberPreference
 import org.json.JSONObject
 import java.io.File
 import java.net.URL
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // --- DIMENSIONS & ANIMATIONS ---
 object SettingsDimensions {
@@ -112,7 +103,6 @@ object SettingsDimensions {
     val RowIconCornerRadius = 12.dp
 
     val ScreenHorizontalPadding = 16.dp
-    val CardInternalPadding = 16.dp
     val SectionSpacing = 14.dp
     val RowVerticalPadding = 14.dp
     val RowHorizontalPadding = 16.dp
@@ -156,7 +146,6 @@ object SettingsAnimations {
     val EntranceFadeDuration = 300
     val EntranceSlideDuration = 350
     val StaggerDelayPerItem = 80
-    val ExitFadeDuration = 200
 
     fun <T> pressSpring() = spring<T>(stiffness = Spring.StiffnessHigh)
     fun <T> entranceSpring() = spring<T>(
@@ -197,11 +186,10 @@ data class SettingsIntegrationAction(
 )
 
 // --- MAIN SCREEN ---
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    latestVersion: Long,
+    latestVersionName: String,
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
@@ -215,17 +203,14 @@ fun SettingsScreen(
     var query by remember { mutableStateOf(TextFieldValue()) }
     val focusRequester = remember { FocusRequester() }
 
-    var latestVersionName by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
-    var showUpdateBanner by remember { mutableStateOf(false) }
+    val showUpdateBanner = latestVersionName != BuildConfig.VERSION_NAME
     var showDownloadDialog by remember { mutableStateOf(false) }
     var showTranslateDialog by remember { mutableStateOf(false) }
     var showChangelogSheet by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        val newVersion = checkForUpdates()
-        if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
-            showUpdateBanner = true
-            latestVersionName = newVersion
+    LaunchedEffect(isSearching) {
+        if (isSearching) {
+            focusRequester.requestFocus()
         }
     }
 
@@ -338,9 +323,9 @@ fun SettingsScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(
-                            onClick = navController::navigateUp,
-                            onLongClick = navController::backToMain,
+                        com.arturo254.opentune.ui.component.IconButton(
+                            onClick = { navController.navigateUp() },
+                            onLongClick = { navController.backToMain() },
                         ) {
                             Icon(
                                 painterResource(R.drawable.arrow_back),
@@ -349,7 +334,7 @@ fun SettingsScreen(
                         }
                     },
                     actions = {
-                        IconButton(
+                        com.arturo254.opentune.ui.component.IconButton(
                             onClick = { isSearching = true },
                             onLongClick = {},
                         ) {
@@ -400,7 +385,7 @@ fun SettingsScreen(
                     },
                     placeholder = { Text(text = stringResource(R.string.search)) },
                     leadingIcon = {
-                        IconButton(
+                        com.arturo254.opentune.ui.component.IconButton(
                             onClick = { resetSearch() },
                             onLongClick = {
                                 if (queryText.isBlank()) {
@@ -418,8 +403,7 @@ fun SettingsScreen(
                         Row {
                             if (query.text.isNotBlank()) {
                                 IconButton(
-                                    onClick = { query = TextFieldValue() },
-                                    onLongClick = {},
+                                    onClick = { query = TextFieldValue() }
                                 ) {
                                     Icon(
                                         painter = painterResource(R.drawable.close),
@@ -443,7 +427,6 @@ fun SettingsScreen(
         }
     }
 
-    // Modal dialogues & sheets
     if (showTranslateDialog) {
         AlertDialog(
             onDismissRequest = { showTranslateDialog = false },
@@ -508,14 +491,12 @@ enum class SettingsLayoutMode {
 
 @Composable
 fun resolveLayoutMode(): SettingsLayoutMode {
-    val windowInfo = currentWindowAdaptiveInfo().windowSizeClass
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
     return when {
-        windowInfo.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
-            SettingsLayoutMode.EXPANDED
-        windowInfo.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
-            SettingsLayoutMode.MEDIUM
-        else ->
-            SettingsLayoutMode.COMPACT
+        screenWidth >= 840 -> SettingsLayoutMode.EXPANDED
+        screenWidth >= 600 -> SettingsLayoutMode.MEDIUM
+        else -> SettingsLayoutMode.COMPACT
     }
 }
 
@@ -642,10 +623,10 @@ private fun CompactSettingsLayout(
         item(key = "hero") {
             AnimatedVisibility(
                 visible = heroVisible,
-                enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
                         slideInVertically(
                             initialOffsetY = { -it / 5 },
-                            animationSpec = SettingsAnimations.entranceSpring(),
+                            animationSpec = SettingsAnimations.entranceSpring<IntOffset>(),
                         ),
             ) {
                 val context = LocalContext.current
@@ -672,8 +653,8 @@ private fun CompactSettingsLayout(
             item(key = "permission") {
                 AnimatedVisibility(
                     visible = bannerVisible && state.showPermissionBanner,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
+                    enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
+                            expandVertically(SettingsAnimations.entranceSpring<IntSize>()),
                     exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
                 ) {
                     SettingsPermissionBanner(
@@ -688,8 +669,8 @@ private fun CompactSettingsLayout(
             item(key = "update") {
                 AnimatedVisibility(
                     visible = bannerVisible && state.showUpdateBanner,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
+                    enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
+                            expandVertically(SettingsAnimations.entranceSpring<IntSize>()),
                     exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
                 ) {
                     SettingsUpdateBanner(
@@ -707,10 +688,10 @@ private fun CompactSettingsLayout(
             item(key = "quickActions") {
                 AnimatedVisibility(
                     visible = quickActionsVisible,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                    enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
                             slideInVertically(
                                 initialOffsetY = { it / 6 },
-                                animationSpec = SettingsAnimations.entranceSpring(),
+                                animationSpec = SettingsAnimations.entranceSpring<IntOffset>(),
                             ),
                 ) {
                     SettingsQuickActionsSection(
@@ -728,10 +709,10 @@ private fun CompactSettingsLayout(
             item(key = "integrations") {
                 AnimatedVisibility(
                     visible = integrationsVisible,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                    enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
                             slideInVertically(
                                 initialOffsetY = { it / 6 },
-                                animationSpec = SettingsAnimations.entranceSpring(),
+                                animationSpec = SettingsAnimations.entranceSpring<IntOffset>(),
                             ),
                 ) {
                     SettingsIntegrationsSection(
@@ -752,6 +733,17 @@ private fun CompactSettingsLayout(
                 )
             }
         } else {
+            if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                item(key = "internalSearchResults") {
+                    SettingsGroupCard(
+                        group = state.internalGroup,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
             items(
                 count = state.groups.size,
                 key = { state.groups[it].title },
@@ -819,7 +811,7 @@ private fun MediumSettingsLayout(
             item(key = "hero") {
                 AnimatedVisibility(
                     visible = heroVisible,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    enter = fadeIn(SettingsAnimations.entranceSpring<Float>()),
                 ) {
                     val context = LocalContext.current
                     val avatarManager = remember { AvatarPreferenceManager(context) }
@@ -843,8 +835,8 @@ private fun MediumSettingsLayout(
                 item(key = "permission") {
                     AnimatedVisibility(
                         visible = bannerVisible && state.showPermissionBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                                expandVertically(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
+                                expandVertically(SettingsAnimations.entranceSpring<IntSize>()),
                         exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
                     ) {
                         SettingsPermissionBanner(
@@ -857,8 +849,8 @@ private fun MediumSettingsLayout(
                 item(key = "update") {
                     AnimatedVisibility(
                         visible = bannerVisible && state.showUpdateBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                                expandVertically(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
+                                expandVertically(SettingsAnimations.entranceSpring<IntSize>()),
                         exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
                     ) {
                         SettingsUpdateBanner(
@@ -874,7 +866,7 @@ private fun MediumSettingsLayout(
                 item(key = "quickActions") {
                     AnimatedVisibility(
                         visible = quickActionsVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()),
                     ) {
                         SettingsQuickActionsSection(
                             actions = state.quickActions,
@@ -889,7 +881,7 @@ private fun MediumSettingsLayout(
                 item(key = "integrations") {
                     AnimatedVisibility(
                         visible = integrationsVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()),
                     ) {
                         SettingsIntegrationsSection(
                             integrations = state.integrations,
@@ -912,6 +904,15 @@ private fun MediumSettingsLayout(
                     SettingsSearchEmpty()
                 }
             } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
                 items(
                     count = state.groups.size,
                     key = { state.groups[it].title },
@@ -977,7 +978,7 @@ private fun ExpandedSettingsLayout(
             item(key = "hero") {
                 AnimatedVisibility(
                     visible = heroVisible,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    enter = fadeIn(SettingsAnimations.entranceSpring<Float>()),
                 ) {
                     val context = LocalContext.current
                     val avatarManager = remember { AvatarPreferenceManager(context) }
@@ -1001,8 +1002,8 @@ private fun ExpandedSettingsLayout(
                 item(key = "permission") {
                     AnimatedVisibility(
                         visible = bannerVisible && state.showPermissionBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                                expandVertically(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
+                                expandVertically(SettingsAnimations.entranceSpring<IntSize>()),
                         exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
                     ) {
                         SettingsPermissionBanner(
@@ -1015,8 +1016,8 @@ private fun ExpandedSettingsLayout(
                 item(key = "update") {
                     AnimatedVisibility(
                         visible = bannerVisible && state.showUpdateBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                                expandVertically(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()) +
+                                expandVertically(SettingsAnimations.entranceSpring<IntSize>()),
                         exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
                     ) {
                         SettingsUpdateBanner(
@@ -1032,7 +1033,7 @@ private fun ExpandedSettingsLayout(
                 item(key = "quickActions") {
                     AnimatedVisibility(
                         visible = quickActionsVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()),
                     ) {
                         SettingsQuickActionsSection(
                             actions = state.quickActions,
@@ -1047,7 +1048,7 @@ private fun ExpandedSettingsLayout(
                 item(key = "integrations") {
                     AnimatedVisibility(
                         visible = integrationsVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        enter = fadeIn(SettingsAnimations.entranceSpring<Float>()),
                     ) {
                         SettingsIntegrationsSection(
                             integrations = state.integrations,
@@ -1070,6 +1071,15 @@ private fun ExpandedSettingsLayout(
                     SettingsSearchEmpty()
                 }
             } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
                 items(
                     count = state.groups.size,
                     key = { state.groups[it].title },
@@ -1407,7 +1417,7 @@ fun SettingsUpdateBanner(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
+        animationSpec = SettingsAnimations.pressSpring<Float>(),
         label = "updateScale",
     )
 
@@ -1606,12 +1616,12 @@ fun SettingsRow(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
+        animationSpec = SettingsAnimations.pressSpring<Float>(),
         label = "rowScale",
     )
     val bgAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.06f else 0f,
-        animationSpec = SettingsAnimations.pressSpring(),
+        animationSpec = SettingsAnimations.pressSpring<Float>(),
         label = "rowBgAlpha",
     )
 
@@ -1767,12 +1777,12 @@ fun QuickActionCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) SettingsAnimations.TilePressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
+        animationSpec = SettingsAnimations.pressSpring<Float>(),
         label = "tileScale",
     )
     val iconRotation by animateFloatAsState(
         targetValue = if (isPressed) SettingsAnimations.IconPressRotation else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
         label = "iconRotation",
     )
 
@@ -1862,12 +1872,12 @@ fun IntegrationPill(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) SettingsAnimations.PillPressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
+        animationSpec = SettingsAnimations.pressSpring<Float>(),
         label = "pillScale",
     )
     val lift by animateFloatAsState(
         targetValue = if (isPressed) SettingsAnimations.PillPressLift.value else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
         label = "pillLift",
     )
 
@@ -2085,7 +2095,7 @@ fun buildSettingsGroups(
                     SettingsItem(
                         icon = painterResource(R.drawable.restore),
                         title = stringResource(R.string.backup_restore),
-                        subtitle = stringResource(R.string.action_backup),
+                        subtitle = stringResource(R.string.backup_restore),
                         accentColor = MaterialTheme.colorScheme.tertiary,
                         keywords = listOf("backup", "restore", "import", "export", "migration"),
                         onClick = { resetSearch(); navController.navigate("settings/backup_restore") },
