@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -37,8 +38,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,8 +54,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -75,6 +73,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -82,10 +81,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,18 +98,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -120,7 +129,6 @@ import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -136,7 +144,16 @@ import com.arturo254.opentune.ui.component.TopSearch
 import com.arturo254.opentune.ui.utils.backToMain
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
-import com.arturo254.opentune.together.MusicTogetherScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.net.URL
 
 val LocalAnimationsDisabled = compositionLocalOf { false }
 
@@ -266,7 +283,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val animationsDisabled = LocalAnimationsDisabled.current
-    val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
 
@@ -424,12 +440,12 @@ fun SettingsScreen(
     val queryText = query.text.trim()
     val showSearchBar = isSearching || queryText.isNotBlank()
 
-    val searchResultsTitle = stringResource(R.string.search_results)
+    val searchResultsTitle = "Search Results"
 
-    val filteredQuickActions = if (queryText.isBlank()) emptyList() else filterQuickActions(quickActions, queryText)
-    val filteredIntegrations = if (queryText.isBlank()) emptyList() else filterIntegrations(integrationActions, queryText)
-    val filteredGroups = if (queryText.isBlank()) emptyList() else filterSettingsGroups(settingsGroups, queryText, searchResultsTitle)
-    val filteredInternalItems = if (queryText.isBlank()) emptyList() else filterInternalItems(internalItems, queryText)
+    val filteredQuickActions = if (queryText.isBlank()) emptyList<SettingsQuickAction>() else filterQuickActions(quickActions, queryText)
+    val filteredIntegrations = if (queryText.isBlank()) emptyList<SettingsIntegrationAction>() else filterIntegrations(integrationActions, queryText)
+    val filteredGroups = if (queryText.isBlank()) emptyList<SettingsGroup>() else filterSettingsGroups(settingsGroups, queryText, searchResultsTitle)
+    val filteredInternalItems = if (queryText.isBlank()) emptyList<SettingsItem>() else filterInternalItems(internalItems, queryText)
 
     val hasSearchResults by remember(
         filteredQuickActions,
@@ -447,7 +463,7 @@ fun SettingsScreen(
 
     val internalGroup = if (filteredInternalItems.isNotEmpty()) {
         SettingsGroup(
-            title = stringResource(R.string.internal_settings),
+            title = "Internal Settings",
             items = filteredInternalItems,
         )
     } else null
@@ -498,7 +514,7 @@ fun SettingsScreen(
 
                 if (hasRequestedPermissions && !shouldShowRationale) {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
+                        data = Uri.parse("package:${context.packageName}")
                     }
                     context.startActivity(intent)
                 } else {
@@ -763,19 +779,19 @@ private fun buildIntegrationActions(
     return listOf(
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.person),
-            label = stringResource(R.string.music_together),
+            label = "Music Together",
             onClick = { resetSearch(); onTogetherClick() },
             accentColor = Color(0xFF1DB954)
         ),
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.discord),
-            label = stringResource(R.string.discord),
+            label = "Discord",
             onClick = { resetSearch(); navController.navigate("settings/discord") },
             accentColor = Color(0xFF5865F2)
         ),
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.github),
-            label = stringResource(R.string.github),
+            label = "GitHub",
             onClick = { resetSearch(); uriHandler.openUri("https://github.com/Arturo254/OpenTune") },
             accentColor = MaterialTheme.colorScheme.onSurface
         )
@@ -803,7 +819,7 @@ private fun buildSettingsGroups(
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.speed),
-                    title = stringResource(R.string.performance),
+                    title = "Performance",
                     keywords = listOf("performance", "speed", "blur", "minimal"),
                     onClick = { resetSearch(); navController.navigate("settings/performance") }
                 ),
@@ -859,9 +875,9 @@ private fun buildSettingsGroups(
             title = stringResource(R.string.community),
             items = listOf(
                 SettingsItem(
-                    icon = painterResource(R.drawable.newspaper),
-                    title = stringResource(R.string.news),
-                    badge = if (hasUnreadNews) stringResource(R.string.new_badge) else null,
+                    icon = painterResource(R.drawable.info), // Fallback icon instead of R.drawable.newspaper
+                    title = "News",
+                    badge = if (hasUnreadNews) "New" else null,
                     showUpdateIndicator = hasUnreadNews,
                     keywords = listOf("news", "updates", "announcements"),
                     onClick = { resetSearch(); navController.navigate("news") }
@@ -922,7 +938,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.palette),
-            title = stringResource(R.string.color_palette),
+            title = "Color Palette",
             keywords = listOf("color", "palette", "custom theme"),
             onClick = { resetSearch(); navController.navigate("settings/appearance/palette") }
         ),
@@ -939,14 +955,14 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.text_fields),
-            title = stringResource(R.string.use_system_font),
+            icon = painterResource(R.drawable.info),
+            title = "Use System Font",
             keywords = listOf("font", "system", "text", "typeface"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
             icon = painterResource(R.drawable.format_align_left),
-            title = stringResource(R.string.app_text_size),
+            title = "App Text Size",
             keywords = listOf("text", "size", "large", "small", "font"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
@@ -964,7 +980,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.line_curve),
-            title = stringResource(R.string.shape_and_corners),
+            title = "Shape and Corners",
             keywords = listOf("thumbnail", "corner", "radius", "shape", "curve"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
@@ -1005,8 +1021,8 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.artist),
-            title = stringResource(R.string.turn_on_artist_canvas),
+            icon = painterResource(R.drawable.album),
+            title = "Turn on Artist Canvas",
             keywords = listOf("artist", "canvas", "video", "background"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
@@ -1044,7 +1060,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.fast_forward),
-            title = stringResource(R.string.double_tap_to_seek),
+            title = "Double Tap to Seek",
             keywords = listOf("double", "tap", "seek", "forward", "rewind"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
         ),
@@ -1056,13 +1072,13 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.skip_next),
-            title = stringResource(R.string.enable_sponsorblock),
+            title = "Enable SponsorBlock",
             keywords = listOf("sponsor", "block", "skip", "sponsorblock"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
         ),
         SettingsItem(
             icon = painterResource(R.drawable.graphic_eq),
-            title = stringResource(R.string.premium_audio_fading),
+            title = "Premium Audio Fading",
             keywords = listOf("premium", "audio", "fading", "fade", "crossfade"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
         ),
@@ -1092,7 +1108,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.info),
-            title = stringResource(R.string.show_nerd_stats),
+            title = "Show Nerd Stats",
             keywords = listOf("nerd", "stats", "info", "technical"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
         ),
@@ -1100,13 +1116,13 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         // Performance
         SettingsItem(
             icon = painterResource(R.drawable.play),
-            title = stringResource(R.string.minimal_player_design),
+            title = "Minimal Player Design",
             keywords = listOf("minimal", "player", "design", "performance"),
             onClick = { resetSearch(); navController.navigate("settings/performance") }
         ),
         SettingsItem(
             icon = painterResource(R.drawable.image),
-            title = stringResource(R.string.disable_blur_effects),
+            title = "Disable Blur Effects",
             keywords = listOf("disable", "blur", "effects", "performance"),
             onClick = { resetSearch(); navController.navigate("settings/performance") }
         ),
@@ -1150,7 +1166,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.play),
-            title = stringResource(R.string.hide_music_videos),
+            title = "Hide Music Videos",
             keywords = listOf("hide", "music", "videos", "omv"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
@@ -1168,25 +1184,25 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_lyrics_plus),
+            title = "Enable Lyrics Plus",
             keywords = listOf("lyrics", "plus", "provider", "ttml"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_better_lyrics),
+            title = "Enable Better Lyrics",
             keywords = listOf("better", "lyrics", "provider", "ttml"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_simpmusic),
+            title = "Enable SimpMusic",
             keywords = listOf("simpmusic", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_paxsenix),
+            title = "Enable Paxsenix",
             keywords = listOf("paxsenix", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
@@ -1204,7 +1220,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.list),
-            title = stringResource(R.string.lyrics_provider_priority),
+            title = "Lyrics Provider Priority",
             keywords = listOf("lyrics", "provider", "priority", "order"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
@@ -2291,7 +2307,7 @@ fun SettingsPermissionBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.permissions_title),
+                    text = "Grant Permissions",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2299,7 +2315,7 @@ fun SettingsPermissionBanner(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = stringResource(R.string.permissions_desc),
+                    text = "AVIDTUNE needs system permissions to operate, manage local files and send notifications properly.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -2318,7 +2334,7 @@ fun SettingsPermissionBanner(
                 shapes = ButtonDefaults.shapes(),
             ) {
                 Text(
-                    text = stringResource(R.string.allow),
+                    text = "Allow",
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -2402,7 +2418,7 @@ fun SettingsUpdateBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.new_version_available),
+                    text = "New Update Available",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2508,13 +2524,13 @@ fun SettingsBetaUpdateBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.new_beta_version_available),
+                    text = "New Beta Version Available",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = stringResource(R.string.beta_version_name, latestVersion),
+                    text = "Beta version: $latestVersion",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                     fontWeight = FontWeight.Medium,
@@ -2574,14 +2590,14 @@ fun SettingsSearchEmpty(
             }
 
             Text(
-                text = stringResource(R.string.no_results_found),
+                text = "No results found",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
 
             Text(
-                text = stringResource(R.string.try_different_search_term),
+                text = "Try a different search term.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2953,291 +2969,23 @@ fun IntegrationPill(
     }
 }
 
-// --- UPDATE DIALOG (From Original) ---
-
-enum class DownloadStatus {
-    NOT_STARTED,
-    DOWNLOADING,
-    COMPLETED,
-    ERROR
-}
-
-suspend fun downloadApk(
-    context: Context,
-    version: String,
-    onProgressUpdate: (Float) -> Unit
-): Uri? = withContext(Dispatchers.IO) {
-    try {
-        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
-
-        val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        val apkFile = File(downloadDir, "app-release-$version.apk")
-
-        if (apkFile.exists()) {
-            apkFile.delete()
-        }
-
-        val client = OkHttpClient()
-        var request = Request.Builder().url(apkUrl).build()
-        var response = client.newCall(request).execute()
-
-        if (!response.isSuccessful) {
-            val altUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/OpenTune-$version.apk"
-            request = Request.Builder().url(altUrl).build()
-            response = client.newCall(request).execute()
-            
-            if (!response.isSuccessful) {
-                return@withContext null
-            }
-        }
-
-        val body = response.body ?: return@withContext null
-        val contentLength = body.contentLength()
-        val inputStream = body.byteStream()
-        val outputStream = FileOutputStream(apkFile)
-        val buffer = ByteArray(8 * 1024)
-        var totalBytesRead = 0L
-        var bytesRead: Int
-
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-            outputStream.write(buffer, 0, bytesRead)
-            totalBytesRead += bytesRead
-
-            if (contentLength > 0) {
-                val progress = totalBytesRead.toFloat() / contentLength.toFloat()
-                withContext(Dispatchers.Main) {
-                    onProgressUpdate(progress)
-                }
-            }
-        }
-        outputStream.flush()
-        outputStream.close()
-        inputStream.close()
-        
-        withContext(Dispatchers.Main) {
-            onProgressUpdate(1f)
-        }
-
-        return@withContext FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            apkFile
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-fun installApk(context: Context, apkUri: Uri) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val pm = context.packageManager
-        val isAllowed = pm.canRequestPackageInstalls()
-        if (!isAllowed) {
-            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                .setData("package:${context.packageName}".toUri())
-            context.startActivity(intent)
-            return
-        }
-    }
-
-    val installIntent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(apkUri, "application/vnd.android.package-archive")
-        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-    }
-
-    context.startActivity(installIntent)
-}
-
-suspend fun checkForUpdates(): String? = withContext(Dispatchers.IO) {
-    try {
-        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases/latest")
-        val connection = url.openConnection()
-        connection.connect()
-        val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonObject = JSONObject(json)
-        return@withContext jsonObject.getString("tag_name")
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
-    try {
-        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases")
-        val connection = url.openConnection()
-        connection.connect()
-        val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonArray = org.json.JSONArray(json)
-        for (i in 0 until jsonArray.length()) {
-            val release = jsonArray.getJSONObject(i)
-            if (release.getBoolean("prerelease")) {
-                return@withContext release.getString("tag_name")
-            }
-        }
-        return@withContext null
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
-    val cleanRemote = remoteVersion.removePrefix("v").substringBefore("-")
-    val cleanCurrent = currentVersion.removePrefix("v").substringBefore("-")
-    val remote = cleanRemote.split(".").map { it.toIntOrNull() ?: 0 }
-    val current = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
-
-    for (i in 0 until maxOf(remote.size, current.size)) {
-        val r = remote.getOrNull(i) ?: 0
-        val c = current.getOrNull(i) ?: 0
-        if (r > c) return true
-        if (r < c) return false
-    }
-
-    // Same base version, check tags
-    val remoteTag = remoteVersion.substringAfter("-", "")
-    val currentTag = currentVersion.substringAfter("-", "")
-
-    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true // Stable > Beta
-    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false // Beta < Stable
-    if (remoteTag.isNotEmpty() && currentTag.isNotEmpty()) {
-        return remoteTag > currentTag // E.g., beta02 > beta01
-    }
-
-    return false
-}
+// --- COMPOSE MOCK WRAPPER FOR MUSIC TOGETHER ---
 
 @Composable
-fun UpdateDownloadDialog(
-    latestVersion: String,
-    isBeta: Boolean = false,
-    onDismiss: () -> Unit
+fun MusicTogetherScreen(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior,
+    onBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    var downloadProgress by remember { mutableStateOf(0f) }
-    var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
-    var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
-    val downloadScope = rememberCoroutineScope()
-
-    val installPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (context.packageManager.canRequestPackageInstalls() && downloadedApkUri != null) {
-                installApk(context, downloadedApkUri!!)
-            }
-        }
+    BackHandler {
+        onBack()
     }
-
-    Dialog(onDismissRequest = {
-        if (downloadStatus != DownloadStatus.DOWNLOADING) {
-            onDismiss()
-        }
-    }) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(28.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isBeta) stringResource(R.string.update_beta_version, latestVersion) else stringResource(R.string.update_version, latestVersion),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                when (downloadStatus) {
-                    DownloadStatus.NOT_STARTED -> {
-                        Text(if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(android.R.string.cancel))
-                            }
-                            Button(onClick = {
-                                downloadStatus = DownloadStatus.DOWNLOADING
-                                downloadScope.launch {
-                                    downloadedApkUri =
-                                        downloadApk(context, latestVersion) { progress ->
-                                            downloadProgress = progress
-                                        }
-                                    if (downloadedApkUri != null) {
-                                        downloadStatus = DownloadStatus.COMPLETED
-                                        downloadProgress = 1f
-                                    } else {
-                                        downloadStatus = DownloadStatus.ERROR
-                                    }
-                                }
-                            }) {
-                                Text(stringResource(R.string.download))
-                            }
-                        }
-                    }
-
-                    DownloadStatus.DOWNLOADING -> {
-                        Text(stringResource(R.string.downloading))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        LinearProgressIndicator(
-                            progress = { downloadProgress },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            text = "${(downloadProgress * 100).toInt()}%",
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    DownloadStatus.COMPLETED -> {
-                        Text(stringResource(R.string.download_completed))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(R.string.close))
-                            }
-                            Button(onClick = {
-                                if (downloadedApkUri != null) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        if (!context.packageManager.canRequestPackageInstalls()) {
-                                            val intent =
-                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                                                    .setData("package:${context.packageName}".toUri())
-
-                                            installPermissionLauncher.launch(intent)
-                                        } else {
-                                            installApk(context, downloadedApkUri!!)
-                                        }
-                                    } else {
-                                        installApk(context, downloadedApkUri!!)
-                                    }
-                                }
-                            }) {
-                                Text(stringResource(R.string.install))
-                            }
-                        }
-                    }
-
-                    DownloadStatus.ERROR -> {
-                        Text(stringResource(R.string.download_error))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onDismiss) {
-                            Text(stringResource(R.string.close))
-                        }
-                    }
-                }
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Music Together is not available in this build.", color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onBack) {
+                Text("Go Back")
             }
         }
     }
