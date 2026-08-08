@@ -98,10 +98,7 @@ object YouTube {
         get() = innerTube.cookie
         set(value) {
             innerTube.cookie = value
-            cookieMap = if (value == null) emptyMap() else parseCookieString(value)
         }
-    private var cookieMap = emptyMap<String, String>()
-
     var proxy: Proxy?
         get() = innerTube.proxy
         set(value) {
@@ -269,6 +266,19 @@ object YouTube {
             }
             response.header?.musicDetailHeaderRenderer?.description?.runs?.let { yield(it) }
             response.header?.musicImmersiveHeaderRenderer?.description?.runs?.let { yield(it) }
+            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer?.description?.runs?.let { yield(it) }
+            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
+            
+            response.contents?.twoColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
+                tab?.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
+                    content.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
+                }
+            }
+            response.contents?.singleColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
+                tab.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
+                    content.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
+                }
+            }
         }.firstOrNull()?.let(::mapRuns)
 
         val description = descriptionRuns?.joinToString(separator = "") { it.text }
@@ -355,14 +365,14 @@ object YouTube {
         val seenContinuations = mutableSetOf<String>()
         var requestCount = 0
         val maxRequests = 50 
-
+        
         while (continuation != null && requestCount < maxRequests) {
             if (continuation in seenContinuations) {
                 break
             }
             seenContinuations.add(continuation)
             requestCount++
-
+            
             response = innerTube.browse(
                 client = WEB_REMIX,
                 continuation = continuation,
@@ -422,12 +432,12 @@ object YouTube {
         val response = innerTube.browse(WEB_REMIX, endpoint.browseId, endpoint.params).body<BrowseResponse>()
         val sectionContent = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-
+        
         val gridRenderer = sectionContent?.gridRenderer
         val musicCarouselShelfRenderer = sectionContent?.musicCarouselShelfRenderer
         val musicPlaylistShelfRenderer = sectionContent?.musicPlaylistShelfRenderer
         val musicShelfRenderer = sectionContent?.musicShelfRenderer
-
+        
         when {
             gridRenderer != null -> {
                 ArtistItemsPage(
@@ -455,8 +465,8 @@ object YouTube {
             }
             musicShelfRenderer != null -> {
                 ArtistItemsPage(
-                    title = musicShelfRenderer.title?.runs?.firstOrNull()?.text
-                        ?: response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text
+                    title = musicShelfRenderer.title?.runs?.firstOrNull()?.text 
+                        ?: response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text 
                         ?: "",
                     items = musicShelfRenderer.contents?.getItems()?.mapNotNull {
                         ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
@@ -570,15 +580,14 @@ object YouTube {
         val descFromSecondaryShelf = secondarySectionListContents?.firstNotNullOfOrNull {
             it.musicDescriptionShelfRenderer?.description?.runs?.joinToString("") { run -> run.text }
         }
-        val descFromHeader = header?.description?.runs?.joinToString("") { it.text }
         val descFromEditable = base?.musicEditablePlaylistDetailHeaderRenderer
             ?.header?.musicDetailHeaderRenderer
-            ?.description?.runs?.joinToString("") { it.text }
+            ?.description?.runs?.joinToString("") { run -> run.text }
         val descFromTopLevel = response.header?.musicDetailHeaderRenderer
-            ?.description?.runs?.joinToString("") { it.text }
+            ?.description?.runs?.joinToString("") { run -> run.text }
         val descFromMicroformat = response.microformat?.microformatDataRenderer?.description
 
-        val description: String? = descFromShelf ?: descFromSecondaryShelf ?: descFromHeader ?: descFromEditable ?: descFromTopLevel ?: descFromMicroformat
+        val description: String? = descFromShelf ?: descFromSecondaryShelf ?: descFromEditable ?: descFromTopLevel ?: descFromMicroformat
 
 
         PlaylistPage(
@@ -610,7 +619,8 @@ object YouTube {
                 ?: response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
                     ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations?.getContinuation(),
             continuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
-                ?.continuations?.getContinuation()
+                ?.continuations?.getContinuation(),
+            related = related?.ifEmpty { null }
         )
     }
 
@@ -1419,9 +1429,9 @@ object YouTube {
             it.engagementPanelSectionListRenderer?.panelIdentifier == "engagement-panel-comments-section"
         }
         val tokenFromEngagementPanels = commentsPanel?.engagementPanelSectionListRenderer?.content?.sectionListRenderer?.contents
-            ?.mapNotNull { it.itemSectionRenderer }
-            ?.flatMap { it.contents.orEmpty() }
-            ?.mapNotNull { it.continuationItemRenderer }
+            ?.mapNotNull { wrapper -> wrapper.itemSectionRenderer }
+            ?.flatMap { section -> section.contents ?: emptyList() }
+            ?.mapNotNull { wrapper -> wrapper.continuationItemRenderer }
             ?.firstOrNull()?.continuationEndpoint?.continuationCommand?.token
 
         val contentList = response.contents.twoColumnWatchNextResults?.results?.results?.content
