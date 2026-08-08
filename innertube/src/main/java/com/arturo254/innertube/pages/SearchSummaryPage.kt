@@ -231,7 +231,7 @@ data class SearchSummaryPage(
                                 ?.text ?: return null,
                         artists =
                             if (artist.isEmpty()) {
-                                secondaryLine.getOrNull(0)?.oddElements()?.map {
+                                listRun.getOrNull(0)?.oddElements()?.map {
                                     Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
                                 } ?: return null
                             } else {
@@ -239,7 +239,7 @@ data class SearchSummaryPage(
                             },
                         album = album,
                         duration =
-                            secondaryLine
+                            listRun
                                 .lastOrNull()
                                 ?.firstOrNull()
                                 ?.text
@@ -304,15 +304,15 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            secondaryLine.getOrNull(1)?.oddElements()?.map {
+                            listRun.getOrNull(0)?.oddElements()?.map {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
                             } ?: return null,
                         year =
-                            secondaryLine
-                                .getOrNull(2)
+                            listRun
+                                .getOrNull(1)
                                 ?.firstOrNull()
                                 ?.text
                                 ?.toIntOrNull(),
@@ -340,7 +340,7 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         author =
-                            secondaryLine.getOrNull(1)?.firstOrNull()?.let {
+                            listRun.getOrNull(0)?.firstOrNull()?.let {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
