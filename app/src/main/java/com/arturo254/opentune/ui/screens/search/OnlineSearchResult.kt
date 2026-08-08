@@ -3,8 +3,10 @@ package com.arturo254.opentune.ui.screens.search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,11 +16,13 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
@@ -37,38 +41,49 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AppBarHeight
+import com.arturo254.opentune.db.entities.SearchHistory
 import com.arturo254.opentune.extensions.togglePlayPause
+import com.arturo254.innertube.YouTube.SearchFilter
 import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
 import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
 import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
 import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
-import com.arturo254.innertube.YouTube.SearchFilter
 import com.arturo254.innertube.models.AlbumItem
 import com.arturo254.innertube.models.ArtistItem
 import com.arturo254.innertube.models.PlaylistItem
 import com.arturo254.innertube.models.SongItem
 import com.arturo254.innertube.models.WatchEndpoint
 import com.arturo254.innertube.models.YTItem
+import com.arturo254.innertube.pages.SearchSummary
 import com.arturo254.opentune.models.toMediaMetadata
 import com.arturo254.opentune.playback.queues.YouTubeQueue
 import com.arturo254.opentune.ui.component.ChipsRow
@@ -81,6 +96,7 @@ import com.arturo254.opentune.ui.menu.YouTubeAlbumMenu
 import com.arturo254.opentune.ui.menu.YouTubeArtistMenu
 import com.arturo254.opentune.ui.menu.YouTubePlaylistMenu
 import com.arturo254.opentune.ui.menu.YouTubeSongMenu
+import com.arturo254.opentune.viewmodels.OnlineSearchSuggestionViewModel
 import com.arturo254.opentune.viewmodels.OnlineSearchViewModel
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -100,14 +116,29 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
-    
-    val itemsPage by androidx.compose.runtime.remember(searchFilter) {
+    val itemsPage by remember(searchFilter) {
         derivedStateOf {
             searchFilter?.value?.let {
                 viewModel.viewStateMap[it]
             }
         }
     }
+
+    // Load backend-native grouped sections. Filters out podcast episodes from showing in Songs.
+    val allModeSections = remember(searchSummary) {
+        searchSummary?.summaries?.map { summary ->
+            val filteredItems = summary.items.filter { item ->
+                if (item is SongItem) {
+                    item.musicVideoType != "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                } else {
+                    true
+                }
+            }
+            summary.copy(items = filteredItems)
+        }?.filter { it.items.isNotEmpty() }.orEmpty()
+    }
+
+    val isAllModeLoaded = searchSummary != null
 
     LaunchedEffect(lazyListState) {
         snapshotFlow {
@@ -249,10 +280,7 @@ fun OnlineSearchResult(
             modifier = Modifier.weight(1f),
         ) {
             if (searchFilter == null) {
-                // Iterar directamente sobre los resúmenes retornados por el backend (Top result, Canciones, Artistas, etc.)
-                val summaries = searchSummary?.summaries.orEmpty()
-                
-                summaries.forEachIndexed { index, summary ->
+                allModeSections.forEachIndexed { index, summary ->
                     if (index > 0) {
                         item(key = "divider_$index", contentType = "divider") {
                             HorizontalDivider(
@@ -304,7 +332,7 @@ fun OnlineSearchResult(
                     }
                 }
 
-                if (searchSummary != null && summaries.isEmpty()) {
+                if (allModeSections.isEmpty() && isAllModeLoaded) {
                     item(key = "empty_all", contentType = "empty") {
                         EmptyPlaceholder(
                             icon = R.drawable.search,
@@ -340,7 +368,7 @@ fun OnlineSearchResult(
                 }
             }
 
-            if ((searchFilter == null && searchSummary == null) || (searchFilter != null && itemsPage == null)) {
+            if ((searchFilter == null && allModeSections.isEmpty() && !isAllModeLoaded) || (searchFilter != null && itemsPage == null)) {
                 item(key = "initial_loading", contentType = "loading") {
                     ShimmerHost {
                         repeat(8) {
