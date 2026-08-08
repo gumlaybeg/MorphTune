@@ -32,6 +32,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -109,6 +110,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -122,10 +124,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -145,16 +147,22 @@ import com.arturo254.opentune.ui.utils.backToMain
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
 import com.arturo254.opentune.viewmodels.NewReleaseViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.arturo254.opentune.ui.component.ChangelogScreen
+import com.arturo254.opentune.ui.component.AvatarPreferenceManager
+import com.arturo254.opentune.ui.component.AvatarSelection
+import com.arturo254.opentune.ui.component.LanguagePreference
+import com.arturo254.opentune.ui.component.SettingsCategory
+import com.arturo254.opentune.ui.component.SettingsCategoryItem
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.material3.rememberModalBottomSheetState
+import java.io.IOException
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
+import timber.log.Timber
 
 val LocalAnimationsDisabled = compositionLocalOf { false }
 
@@ -225,6 +233,11 @@ object SettingsAnimations {
 
     @Composable
     fun <T> exitTween(): FiniteAnimationSpec<T> =
+        if (LocalAnimationsDisabled.current) snap()
+        else template()
+
+    @Composable
+    fun <T> template(): FiniteAnimationSpec<T> =
         if (LocalAnimationsDisabled.current) snap()
         else tween(durationMillis = ExitFadeDuration)
 
@@ -392,7 +405,7 @@ fun SettingsScreen(
     val queryText = query.text.trim()
     val showSearchBar = isSearching || queryText.isNotBlank()
 
-    val searchResultsTitle = stringResource(R.string.search_results)
+    val searchResultsTitle = "Resultados de búsqueda"
 
     val filteredQuickActions = if (queryText.isBlank()) emptyList() else filterQuickActions(quickActions, queryText)
     val filteredIntegrations = if (queryText.isBlank()) emptyList() else filterIntegrations(integrationActions, queryText)
@@ -415,7 +428,7 @@ fun SettingsScreen(
 
     val internalGroup = if (filteredInternalItems.isNotEmpty()) {
         SettingsGroup(
-            title = stringResource(R.string.internal_settings),
+            title = "Ajustes internos",
             items = filteredInternalItems,
         )
     } else null
@@ -476,6 +489,8 @@ fun SettingsScreen(
                 }
             }
         },
+        onProfileHeaderClick = { navController.navigate("settings/account") },
+        onRequestPermission = { },
         onUpdateClick = { showUpdateDialog = true },
         onBetaUpdateClick = { showBetaUpdateDialog = true },
         onSearchHistoryItemClick = { },
@@ -882,7 +897,2204 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.line_curve),
-            title = stringResource(R.string.shape_and_corners),
+            title = "Formas y esquinas",
+            keywords = listOf("thumbnail", "corner", "radius", "shape", "curve"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.palette),
+            title = stringResource(R.string.player_buttons_style),
+            keywords = listOf("player", "buttons", "style", "primary", "tertiary"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.sliders),
+            title = stringResource(R.string.player_slider_style),
+            keywords = listOf("player", "slider", "style", "squiggly", "slim"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.swipe),
+            title = stringResource(R.string.enable_swipe_thumbnail),
+            keywords = listOf("swipe", "thumbnail", "gesture"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.format_align_center),
+            title = stringResource(R.string.player_text_alignment),
+            keywords = listOf("player", "text", "alignment", "center", "sided"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.lyrics_text_position),
+            keywords = listOf("lyrics", "text", "position", "alignment"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.lyrics_click_change),
+            keywords = listOf("lyrics", "click", "change", "seek"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.nav_bar),
+            title = stringResource(R.string.default_open_tab),
+            keywords = listOf("default", "open", "tab", "home", "explore", "library"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.tab),
+            title = stringResource(R.string.default_lib_chips),
+            keywords = listOf("default", "library", "chips", "filter"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.nav_bar),
+            title = stringResource(R.string.slim_navbar),
+            keywords = listOf("slim", "navbar", "navigation", "bar"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.grid_view),
+            title = stringResource(R.string.grid_cell_size),
+            keywords = listOf("grid", "cell", "size", "large", "small"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        
+        // Player
+        SettingsItem(
+            icon = painterResource(R.drawable.graphic_eq),
+            title = stringResource(R.string.audio_quality),
+            keywords = listOf("audio", "quality", "high", "low", "auto"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.fast_forward),
+            title = stringResource(R.string.skip_silence),
+            keywords = listOf("skip", "silence", "audio"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.volume_up),
+            title = stringResource(R.string.audio_normalization),
+            keywords = listOf("audio", "normalization", "volume", "loudness"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.queue_music),
+            title = stringResource(R.string.persistent_queue),
+            keywords = listOf("persistent", "queue", "save", "restore"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.skip_next),
+            title = stringResource(R.string.auto_skip_next_on_error),
+            keywords = listOf("auto", "skip", "error", "next"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.clear_all),
+            title = stringResource(R.string.stop_music_on_task_clear),
+            keywords = listOf("stop", "music", "task", "clear", "kill"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        
+        // Content
+        SettingsItem(
+            icon = painterResource(R.drawable.language),
+            title = stringResource(R.string.content_language),
+            keywords = listOf("content", "language", "locale"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.location_on),
+            title = stringResource(R.string.content_country),
+            keywords = listOf("content", "country", "region"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.explicit),
+            title = stringResource(R.string.hide_explicit),
+            keywords = listOf("hide", "explicit", "content", "nsfw"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.wifi_proxy),
+            title = stringResource(R.string.enable_proxy),
+            keywords = listOf("proxy", "network", "connection"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_lrclib),
+            keywords = listOf("lrclib", "lyrics", "provider", "synced"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_kugou),
+            keywords = listOf("kugou", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.trending_up),
+            title = stringResource(R.string.top_length),
+            keywords = listOf("top", "length", "size", "playlist"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.home_outlined),
+            title = stringResource(R.string.set_quick_picks),
+            keywords = listOf("quick", "picks", "home", "last listened"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.history),
+            title = stringResource(R.string.history_duration),
+            keywords = listOf("history", "duration", "scrobble", "time"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+
+        // Storage
+        SettingsItem(
+            icon = painterResource(R.drawable.download),
+            title = stringResource(R.string.downloaded_songs),
+            keywords = listOf("downloaded", "songs", "storage", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.music_note),
+            title = stringResource(R.string.song_cache),
+            keywords = listOf("song", "cache", "storage", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.image),
+            title = stringResource(R.string.image_cache),
+            keywords = listOf("image", "cache", "storage", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") }
+        ),
+
+        // Privacy
+        SettingsItem(
+            icon = painterResource(R.drawable.history),
+            title = stringResource(R.string.pause_listen_history),
+            keywords = listOf("pause", "listen", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.delete_history),
+            title = stringResource(R.string.clear_listen_history),
+            keywords = listOf("clear", "listen", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.search_off),
+            title = stringResource(R.string.pause_search_history),
+            keywords = listOf("pause", "search", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.clear_all),
+            title = stringResource(R.string.clear_search_history),
+            keywords = listOf("clear", "search", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.screenshot),
+            title = stringResource(R.string.disable_screenshot),
+            keywords = listOf("disable", "screenshot", "privacy", "secure"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+
+        // Backup & Restore
+        SettingsItem(
+            icon = painterResource(R.drawable.cloud_lock),
+            title = stringResource(R.string.cloud_upload_title),
+            keywords = listOf("cloud", "upload", "backup", "sync"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.backup),
+            title = stringResource(R.string.backup),
+            keywords = listOf("backup", "export", "data"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.restore),
+            title = stringResource(R.string.restore),
+            keywords = listOf("restore", "import", "data"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.replay),
+            title = stringResource(R.string.visitor_data_title),
+            keywords = listOf("visitor", "data", "reset", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        
+        // Discord
+        SettingsItem(
+            icon = painterResource(R.drawable.discord),
+            title = stringResource(R.string.enable_discord_rpc),
+            keywords = listOf("discord", "rpc", "rich presence", "status"),
+            onClick = { resetSearch(); navController.navigate("settings/discord") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.info),
+            title = stringResource(R.string.discord_use_details),
+            keywords = listOf("discord", "details", "status"),
+            onClick = { resetSearch(); navController.navigate("settings/discord") }
+        ),
+        
+        // General
+        SettingsItem(
+            icon = painterResource(R.drawable.link),
+            title = stringResource(R.string.open_supported_links),
+            keywords = listOf("open", "supported", "links", "default"),
+            onClick = {
+                resetSearch()
+                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                } else {
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                }
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        )
+    )
+}
+
+// --- CORE LAYOUT ADAPTERS ---
+
+@Composable
+fun CompactSettingsLayout(
+    state: SettingsContentState,
+    listState: LazyListState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            ),
+        contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+    ) {
+        if (!state.isSearchActive) {
+            item(key = "hero") {
+                AnimatedVisibility(
+                    visible = heroVisible,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        slideInVertically(
+                            initialOffsetY = { -it / 5 },
+                            animationSpec = SettingsAnimations.entranceSpring(),
+                        ),
+                ) {
+                    SettingsProfileHeader(
+                        state = state.profileHeader,
+                        onClick = state.onProfileHeaderClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(top = 4.dp, bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "permission") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showPermissionBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsPermissionBanner(
+                        onRequestPermission = state.onRequestPermission,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "update") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showUpdateBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsUpdateBanner(
+                        latestVersion = state.latestVersion,
+                        onClick = state.onUpdateClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "beta_update") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showBetaUpdateBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsBetaUpdateBanner(
+                        latestVersion = state.latestBetaVersion,
+                        onClick = state.onBetaUpdateClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+
+        if (state.isSearchActive && !state.hasSearchResults) {
+            item(key = "empty") {
+                Spacer(modifier = Modifier.height(24.dp).animateItem())
+                SettingsSearchEmpty(
+                    modifier = Modifier.padding(horizontal = pad).animateItem(),
+                )
+            }
+        } else {
+            if (state.quickActions.isNotEmpty()) {
+                item(key = "quickActions") {
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = quickActionsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            slideInVertically(
+                                initialOffsetY = { it / 6 },
+                                animationSpec = SettingsAnimations.entranceSpring(),
+                            ),
+                    ) {
+                        SettingsQuickActionsSection(
+                            actions = state.quickActions,
+                            columns = quickActionColumns,
+                            modifier = Modifier
+                                .padding(horizontal = pad)
+                                .padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.integrations.isNotEmpty()) {
+                item(key = "integrations") {
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = integrationsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            slideInVertically(
+                                initialOffsetY = { it / 6 },
+                                animationSpec = SettingsAnimations.entranceSpring(),
+                            ),
+                    ) {
+                        SettingsIntegrationsSection(
+                            integrations = state.integrations,
+                            modifier = Modifier
+                                .padding(horizontal = pad)
+                                .padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                item(key = "internalSearchResults") {
+                    SettingsGroupCard(
+                        group = state.internalGroup,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing)
+                            .animateItem(),
+                    )
+                }
+            }
+
+            items(
+                count = state.groups.size,
+                key = { state.groups[it].title },
+            ) { index ->
+                val group = state.groups[index]
+                AnimatedVisibility(
+                    modifier = Modifier.animateItem(),
+                    visible = categoriesVisible,
+                    enter = fadeIn(
+                        SettingsAnimations.staggerTween(index)
+                    ) + slideInVertically(
+                        initialOffsetY = { it / 5 },
+                        animationSpec = SettingsAnimations.staggerTween(index),
+                    ),
+                ) {
+                    SettingsGroupCard(
+                        group = group,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediumSettingsLayout(
+    state: SettingsContentState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            )
+            .padding(horizontal = pad),
+        horizontalArrangement = Arrangement.spacedBy(pad),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(SettingsDimensions.MediumPaneLeftWeight)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (!state.isSearchActive) {
+                item(key = "hero") {
+                    AnimatedVisibility(
+                        visible = heroVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsProfileHeader(
+                            state = state.profileHeader,
+                            onClick = state.onProfileHeaderClick,
+                            modifier = Modifier.padding(top = 4.dp, bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "permission") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showPermissionBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsPermissionBanner(
+                            onRequestPermission = state.onRequestPermission,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsUpdateBanner(
+                            latestVersion = state.latestVersion,
+                            onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "beta_update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showBetaUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsBetaUpdateBanner(
+                            latestVersion = state.latestBetaVersion,
+                            onClick = state.onBetaUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
+                if (state.quickActions.isNotEmpty()) {
+                    item(key = "quickActions") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = quickActionsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsQuickActionsSection(
+                                actions = state.quickActions,
+                                columns = 2,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+
+                if (state.integrations.isNotEmpty()) {
+                    item(key = "integrations") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = integrationsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsIntegrationsSection(
+                                integrations = state.integrations,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(SettingsDimensions.MediumPaneRightWeight)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (state.isSearchActive && !state.hasSearchResults) {
+                item(key = "empty") {
+                    Spacer(modifier = Modifier.height(24.dp).animateItem())
+                    SettingsSearchEmpty(modifier = Modifier.animateItem())
+                }
+            } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing).animateItem(),
+                        )
+                    }
+                }
+
+                items(
+                    count = state.groups.size,
+                    key = { state.groups[it].title },
+                ) { index ->
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = categoriesVisible,
+                        enter = fadeIn(
+                            SettingsAnimations.staggerTween(index)
+                        ) + slideInVertically(
+                            initialOffsetY = { it / 5 },
+                            animationSpec = SettingsAnimations.staggerTween(index),
+                        ),
+                    ) {
+                        SettingsGroupCard(
+                            group = state.groups[index],
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedSettingsLayout(
+    state: SettingsContentState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            )
+            .padding(horizontal = pad),
+        horizontalArrangement = Arrangement.spacedBy(pad),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .width(SettingsDimensions.ExpandedListPaneWidth)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (!state.isSearchActive) {
+                item(key = "hero") {
+                    AnimatedVisibility(
+                        visible = heroVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsProfileHeader(
+                            state = state.profileHeader,
+                            onClick = state.onProfileHeaderClick,
+                            modifier = Modifier.padding(top = 4.dp, bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "permission") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showPermissionBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsPermissionBanner(
+                            onRequestPermission = state.onRequestPermission,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsUpdateBanner(
+                            latestVersion = state.latestVersion,
+                            onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "beta_update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showBetaUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsBetaUpdateBanner(
+                            latestVersion = state.latestBetaVersion,
+                            onClick = state.onBetaUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
+                if (state.quickActions.isNotEmpty()) {
+                    item(key = "quickActions") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = quickActionsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsQuickActionsSection(
+                                actions = state.quickActions,
+                                columns = 2,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+
+                if (state.integrations.isNotEmpty()) {
+                    item(key = "integrations") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = integrationsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsIntegrationsSection(
+                                integrations = state.integrations,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (state.isSearchActive && !state.hasSearchResults) {
+                item(key = "empty") {
+                    Spacer(modifier = Modifier.height(24.dp).animateItem())
+                    SettingsSearchEmpty(modifier = Modifier.animateItem())
+                }
+            } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing).animateItem(),
+                        )
+                    }
+                }
+
+                items(
+                    count = state.groups.size,
+                    key = { state.groups[it].title },
+                ) { index ->
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = categoriesVisible,
+                        enter = fadeIn(
+                            SettingsAnimations.staggerTween(index)
+                        ) + slideInVertically(
+                            initialOffsetY = { it / 5 },
+                            animationSpec = SettingsAnimations.staggerTween(index),
+                        ),
+                    ) {
+                        SettingsGroupCard(
+                            group = state.groups[index],
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- SUB-COMPONENTS FOR DRAWING CONTROLS ---
+
+@Composable
+fun SettingsProfileHeader(
+    state: SettingsProfileState,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val avatarManager = remember { AvatarPreferenceManager(context) }
+    val currentSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "profileHeaderScale",
+    )
+    val title = if (state.isLoading) {
+        "Loading..."
+    } else if (state.isLoggedIn) {
+        state.accountName.ifBlank { stringResource(R.string.account) }
+    } else {
+        stringResource(R.string.login)
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(SettingsDimensions.HeroCardCornerRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.06f),
+                            Color.Transparent,
+                        ),
+                    ),
+                )
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(SettingsDimensions.HeroIconSize)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f),
+                                ),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (state.isLoading) {
+                        CircularWavyProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else if (currentSelection is AvatarSelection.Custom) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data((currentSelection as AvatarSelection.Custom).uri.toUri())
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (currentSelection is AvatarSelection.DiceBear) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data((currentSelection as AvatarSelection.DiceBear).url)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (state.isLoggedIn && !state.accountImageUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(state.accountImageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        val initials = remember(state.accountName) {
+                            val cleanName = state.accountName.replace("@", "").trim()
+                            if (cleanName.isEmpty()) "?" else cleanName.take(2).uppercase()
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.tertiary
+                                        )
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initials,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.account),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.arrow_forward),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsPermissionBanner(
+    onRequestPermission: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(SettingsDimensions.BannerCardCornerRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            Color.Transparent,
+                        ),
+                    ),
+                )
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.BannerIconSize)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.security),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(SettingsDimensions.BannerIconInnerSize),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = "Permisos necesarios",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "Concede los permisos para almacenar canciones e imágenes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Button(
+                onClick = onRequestPermission,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                shapes = ButtonDefaults.shapes(),
+            ) {
+                Text(
+                    text = "Permitir",
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsUpdateBanner(
+    latestVersion: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "updateScale",
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(SettingsDimensions.BannerCardCornerRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            Color.Transparent,
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                    ),
+                )
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.BannerIconSize)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.update),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(SettingsDimensions.BannerIconInnerSize),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = "Nueva versión disponible",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "Versión $latestVersion",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.arrow_forward),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsBetaUpdateBanner(
+    latestVersion: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "betaUpdateScale",
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(SettingsDimensions.BannerCardCornerRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            Color.Transparent,
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                    ),
+                )
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.BannerIconSize)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.update),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(SettingsDimensions.BannerIconInnerSize),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = "Nueva versión Beta disponible",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "Versión Beta $latestVersion",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.arrow_forward),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsSearchEmpty(
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(SettingsDimensions.GroupCardCornerRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.search),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.no_results_found),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Text(
+                text = stringResource(R.string.try_different_search_term),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsGroupCard(
+    group: SettingsGroup,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.animateContentSize()) {
+        Text(
+            text = group.title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = MaterialTheme.typography.labelSmall.letterSpacing * 1.2f,
+            modifier = Modifier.padding(
+                horizontal = SettingsDimensions.SectionHeaderHorizontalPadding,
+                vertical = SettingsDimensions.SectionHeaderBottomPadding,
+            ),
+        )
+
+        Card(
+            shape = RoundedCornerShape(SettingsDimensions.GroupCardCornerRadius),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.animateContentSize()
+        ) {
+            Column {
+                group.items.forEachIndexed { index, item ->
+                    SettingsRow(
+                        item = item,
+                        showDivider = index < group.items.size - 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsRow(
+    item: SettingsItem,
+    showDivider: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val effectiveAccent = if (item.accentColor.isSpecified) {
+        item.accentColor
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "rowScale",
+    )
+    
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.08f else 0f,
+        animationSpec = if (LocalAnimationsDisabled.current) snap() else tween(150),
+        label = "rowBgAlpha",
+    )
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha))
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = item.onClick,
+                )
+                .padding(
+                    horizontal = SettingsDimensions.RowHorizontalPadding,
+                    vertical = SettingsDimensions.RowVerticalPadding,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.RowIconSize)
+                    .clip(RoundedCornerShape(SettingsDimensions.RowIconCornerRadius))
+                    .background(effectiveAccent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (item.showUpdateIndicator) {
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(8.dp),
+                            )
+                        },
+                    ) {
+                        Icon(
+                            painter = item.icon,
+                            contentDescription = null,
+                            tint = effectiveAccent,
+                            modifier = Modifier.size(SettingsDimensions.RowIconInnerSize),
+                        )
+                    }
+                } else {
+                    Icon(
+                        painter = item.icon,
+                        contentDescription = null,
+                        tint = effectiveAccent,
+                        modifier = Modifier.size(SettingsDimensions.RowIconInnerSize),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                item.subtitle?.let { subtitle ->
+                    Spacer(modifier = Modifier.height(1.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (item.showUpdateIndicator) {
+                            effectiveAccent
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            item.badge?.let { badge ->
+                Spacer(modifier = Modifier.width(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                ) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            Icon(
+                painter = painterResource(R.drawable.arrow_forward),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                modifier = Modifier.size(SettingsDimensions.ChevronSize),
+            )
+        }
+
+        if (showDivider) {
+            HorizontalDivider(
+                modifier = Modifier.padding(start = SettingsDimensions.DividerStartIndent),
+                thickness = SettingsDimensions.DividerThickness,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsQuickActionsSection(
+    actions: List<SettingsQuickAction>,
+    columns: Int = SettingsDimensions.CompactColumns,
+    modifier: Modifier = Modifier,
+) {
+    if (actions.isEmpty()) return
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        val rows = actions.chunked(columns)
+        rows.forEach { rowActions ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                rowActions.forEach { action ->
+                    QuickActionCard(
+                        action = action,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(columns - rowActions.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActionCard(
+    action: SettingsQuickAction,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.TilePressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "tileScale",
+    )
+    val iconRotation by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.IconPressRotation else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "iconRotation",
+    )
+
+    Surface(
+        modifier = modifier
+            .scale(scale)
+            .aspectRatio(SettingsDimensions.QuickActionTileAspectRatio),
+        shape = RoundedCornerShape(SettingsDimensions.QuickActionCardCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        onClick = action.onClick,
+        interactionSource = interactionSource,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            action.accentColor.copy(alpha = 0.10f),
+                            Color.Transparent,
+                        ),
+                    ),
+                )
+                .padding(14.dp),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(SettingsDimensions.QuickActionIconSize)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(action.accentColor.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = action.icon,
+                        contentDescription = action.label,
+                        tint = action.accentColor,
+                        modifier = Modifier
+                            .size(SettingsDimensions.QuickActionIconInnerSize)
+                            .graphicsLayer { rotationZ = iconRotation },
+                    )
+                }
+
+                Text(
+                    text = action.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsIntegrationsSection(
+    integrations: List<SettingsIntegrationAction>,
+    modifier: Modifier = Modifier,
+) {
+    if (integrations.isEmpty()) return
+
+    LazyRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(
+            count = integrations.size,
+            key = { integrations[it].label },
+        ) { index ->
+            IntegrationPill(action = integrations[index])
+        }
+    }
+}
+
+@Composable
+fun IntegrationPill(
+    action: SettingsIntegrationAction,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PillPressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "pillScale",
+    )
+    val lift by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PillPressLift.value else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "pillLift",
+    )
+
+    Surface(
+        modifier = modifier
+            .scale(scale)
+            .graphicsLayer { translationY = lift },
+        shape = RoundedCornerShape(SettingsDimensions.IntegrationPillCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        onClick = action.onClick,
+        interactionSource = interactionSource,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.IntegrationIconSize)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(action.accentColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = action.icon,
+                    contentDescription = null,
+                    tint = action.accentColor,
+                    modifier = Modifier.size(SettingsDimensions.IntegrationIconInnerSize),
+                )
+            }
+
+            Text(
+                text = action.label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+// --- UPDATE DIALOG ---
+
+@Composable
+fun UpdateDownloadDialog(
+    latestVersion: String,
+    isBeta: Boolean = false,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
+    var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
+    val downloadScope = rememberCoroutineScope()
+
+    val installPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (context.packageManager.canRequestPackageInstalls() && downloadedApkUri != null) {
+                installApk(context, downloadedApkUri!!)
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = {
+        if (downloadStatus != DownloadStatus.DOWNLOADING) {
+            onDismiss()
+        }
+    }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (isBeta) "Nueva versión Beta $latestVersion disponible" else "Nueva versión $latestVersion disponible",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                when (downloadStatus) {
+                    DownloadStatus.NOT_STARTED -> {
+                        Text(if (isBeta) "¿Deseas descargar la última actualización Beta?" else "¿Deseas descargar la última actualización estable?")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text(stringResource(android.R.string.cancel))
+                            }
+                            Button(onClick = {
+                                downloadStatus = DownloadStatus.DOWNLOADING
+                                downloadScope.launch {
+                                    downloadedApkUri =
+                                        downloadApk(context, latestVersion) { progress ->
+                                            downloadProgress = progress
+                                        }
+                                    if (downloadedApkUri != null) {
+                                        downloadStatus = DownloadStatus.COMPLETED
+                                        downloadProgress = 1f
+                                    } else {
+                                        downloadStatus = DownloadStatus.ERROR
+                                    }
+                                }
+                            }) {
+                                Text(stringResource(R.string.download))
+                            }
+                        }
+                    }
+
+                    DownloadStatus.DOWNLOADING -> {
+                        Text("Descargando...")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "${(downloadProgress * 100).toInt()}%",
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
+                    DownloadStatus.COMPLETED -> {
+                        Text("Descarga completada")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text(stringResource(R.string.close))
+                            }
+                            Button(onClick = {
+                                if (downloadedApkUri != null) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        if (!context.packageManager.canRequestPackageInstalls()) {
+                                            val intent =
+                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                                                    .setData("package:${context.packageName}".toUri())
+
+                                            installPermissionLauncher.launch(intent)
+                                        } else {
+                                            installApk(context, downloadedApkUri!!)
+                                        }
+                                    } else {
+                                        installApk(context, downloadedApkUri!!)
+                                    }
+                                }
+                            }) {
+                                Text("Instalar")
+                            }
+                        }
+                    }
+
+                    DownloadStatus.ERROR -> {
+                        Text("Error al descargar")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onDismiss) {
+                            Text(stringResource(R.string.close))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum class DownloadStatus {
+    NOT_STARTED,
+    DOWNLOADING,
+    COMPLETED,
+    ERROR
+}
+
+suspend fun downloadApk(
+    context: Context,
+    version: String,
+    onProgressUpdate: (Float) -> Unit
+): Uri? = withContext(Dispatchers.IO) {
+    try {
+        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
+
+        val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        val apkFile = File(downloadDir, "app-release-$version.apk")
+
+        if (apkFile.exists()) {
+            apkFile.delete()
+        }
+
+        val client = OkHttpClient()
+        val request = Request.Builder().url(apkUrl).build()
+        val response = client.newCall(request).execute()
+
+        if (!response.isSuccessful) {
+            return@withContext null
+        }
+
+        val body = response.body ?: return@withContext null
+        val contentLength = body.contentLength()
+        val inputStream = body.byteStream()
+        val outputStream = FileOutputStream(apkFile)
+        val buffer = ByteArray(8 * 1024)
+        var totalBytesRead = 0L
+        var bytesRead: Int
+
+        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+            outputStream.write(buffer, 0, bytesRead)
+            totalBytesRead += bytesRead
+
+            if (contentLength > 0) {
+                val progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                withContext(Dispatchers.Main) {
+                    onProgressUpdate(progress)
+                }
+            }
+        }
+        outputStream.flush()
+        outputStream.close()
+        inputStream.close()
+        
+        withContext(Dispatchers.Main) {
+            onProgressUpdate(1f)
+        }
+
+        return@withContext FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            apkFile
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext null
+    }
+}
+
+fun installApk(context: Context, apkUri: Uri) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val pm = context.packageManager
+        val isAllowed = pm.canRequestPackageInstalls()
+        if (!isAllowed) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                .setData("package:${context.packageName}".toUri())
+            context.startActivity(intent)
+            return
+        }
+    }
+
+    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(apkUri, "application/vnd.android.package-archive")
+        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+
+    context.startActivity(installIntent)
+}
+
+suspend fun checkForUpdates(): String? = withContext(Dispatchers.IO) {
+    try {
+        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases/latest")
+        val connection = url.openConnection()
+        connection.connect()
+        val json = connection.getInputStream().bufferedReader().use { it.readText() }
+        val jsonObject = JSONObject(json)
+        return@withContext jsonObject.getString("tag_name")
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext null
+    }
+}
+
+suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
+    try {
+        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases")
+        val connection = url.openConnection()
+        connection.connect()
+        val json = connection.getInputStream().bufferedReader().use { it.readText() }
+        val jsonArray = org.json.JSONArray(json)
+        for (i in 0 until jsonArray.length()) {
+            val release = jsonArray.getJSONObject(i)
+            if (release.getBoolean("prerelease")) {
+                return@withContext release.getString("tag_name")
+            }
+        }
+        return@withContext null
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext null
+    }
+}
+
+fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
+    val cleanRemote = remoteVersion.removePrefix("v").substringBefore("-")
+    val cleanCurrent = currentVersion.removePrefix("v").substringBefore("-")
+    val remote = cleanRemote.split(".").map { it.toIntOrNull() ?: 0 }
+    val current = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
+
+    for (i in 0 until maxOf(remote.size, current.size)) {
+        val r = remote.getOrNull(i) ?: 0
+        val c = current.getOrNull(i) ?: 0
+        if (r > c) return true
+        if (r < c) return false
+    }
+
+    // Same base version, check tags
+    val remoteTag = remoteVersion.substringAfter("-", "")
+    val currentTag = currentVersion.substringAfter("-", "")
+
+    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true // Stable > Beta
+    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false // Beta < Stable
+    if (remoteTag.isNotEmpty() && currentTag.isNotEmpty()) {
+        return remoteTag > currentTag // E.g., beta02 > beta01
+    }
+
+    return false
+}
+
+// --- BUILDER IMPLEMENTATIONS ---
+
+@Composable
+private fun buildQuickActions(navController: NavController, resetSearch: () -> Unit): List<SettingsQuickAction> {
+    return listOf(
+        SettingsQuickAction(
+            icon = painterResource(R.drawable.palette),
+            label = stringResource(R.string.appearance),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") },
+            accentColor = MaterialTheme.colorScheme.primary
+        ),
+        SettingsQuickAction(
+            icon = painterResource(R.drawable.play),
+            label = stringResource(R.string.player_and_audio),
+            onClick = { resetSearch(); navController.navigate("settings/player") },
+            accentColor = MaterialTheme.colorScheme.secondary
+        ),
+        SettingsQuickAction(
+            icon = painterResource(R.drawable.language),
+            label = stringResource(R.string.content),
+            onClick = { resetSearch(); navController.navigate("settings/content") },
+            accentColor = MaterialTheme.colorScheme.tertiary
+        ),
+        SettingsQuickAction(
+            icon = painterResource(R.drawable.storage),
+            label = stringResource(R.string.storage),
+            onClick = { resetSearch(); navController.navigate("settings/storage") },
+            accentColor = MaterialTheme.colorScheme.onSurface
+        )
+    )
+}
+
+@Composable
+private fun buildIntegrationActions(
+    navController: NavController, 
+    resetSearch: () -> Unit
+): List<SettingsIntegrationAction> {
+    val uriHandler = LocalUriHandler.current
+    return listOf(
+        SettingsIntegrationAction(
+            icon = painterResource(R.drawable.discord),
+            label = stringResource(R.string.discord),
+            onClick = { resetSearch(); navController.navigate("settings/discord") },
+            accentColor = Color(0xFF5865F2)
+        ),
+        SettingsIntegrationAction(
+            icon = painterResource(R.drawable.github),
+            label = stringResource(R.string.github),
+            onClick = { resetSearch(); uriHandler.openUri("https://github.com/Arturo254/OpenTune") },
+            accentColor = MaterialTheme.colorScheme.onSurface
+        )
+    )
+}
+
+@Composable
+private fun buildSettingsGroups(
+    navController: NavController,
+    resetSearch: () -> Unit,
+    onChangelogClick: () -> Unit,
+    hasUnreadNews: Boolean
+): List<SettingsGroup> {
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    return listOf(
+        SettingsGroup(
+            title = stringResource(R.string.general_settings),
+            items = listOf(
+                SettingsItem(
+                    icon = painterResource(R.drawable.person),
+                    title = stringResource(R.string.account),
+                    keywords = listOf("account", "login", "profile"),
+                    onClick = { resetSearch(); navController.navigate("settings/account") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.security),
+                    title = stringResource(R.string.privacy),
+                    keywords = listOf("privacy", "history", "security"),
+                    onClick = { resetSearch(); navController.navigate("settings/privacy") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.restore),
+                    title = stringResource(R.string.backup_restore),
+                    keywords = listOf("backup", "restore", "data"),
+                    onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.link),
+                    title = stringResource(R.string.open_supported_links),
+                    keywords = listOf("open", "supported", "links", "default"),
+                    onClick = { 
+                        resetSearch()
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        } else {
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.info),
+                    title = stringResource(R.string.about),
+                    keywords = listOf("about", "info", "version"),
+                    onClick = { resetSearch(); navController.navigate("settings/about") }
+                )
+            )
+        ),
+        SettingsGroup(
+            title = stringResource(R.string.community),
+            items = listOf(
+                SettingsItem(
+                    icon = painterResource(R.drawable.schedule),
+                    title = stringResource(R.string.Changelog),
+                    keywords = listOf("changelog", "updates", "features"),
+                    onClick = { resetSearch(); onChangelogClick() }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.telegram),
+                    title = stringResource(R.string.Telegramchanel),
+                    keywords = listOf("telegram", "community", "channel"),
+                    onClick = { resetSearch(); uriHandler.openUri("https://t.me/opentune_updates") }
+                )
+            )
+        )
+    )
+}
+
+@Composable
+private fun buildInternalItems(navController: NavController, resetSearch: () -> Unit): List<SettingsItem> {
+    val context = LocalContext.current
+    return listOf(
+        // Account
+        SettingsItem(
+            icon = painterResource(R.drawable.person),
+            title = stringResource(R.string.login),
+            keywords = listOf("account", "login", "google", "sign in"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.token),
+            title = stringResource(R.string.advanced_login),
+            keywords = listOf("advanced", "login", "token", "cookie"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.person),
+            title = stringResource(R.string.use_login_for_browse),
+            keywords = listOf("use", "login", "browse", "account"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.cached),
+            title = stringResource(R.string.ytm_sync),
+            keywords = listOf("youtube", "music", "sync", "ytm", "playlists"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+
+        // Appearance
+        SettingsItem(
+            icon = painterResource(R.drawable.palette),
+            title = stringResource(R.string.enable_dynamic_theme),
+            keywords = listOf("dynamic", "theme", "color", "material you"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.dark_mode),
+            title = stringResource(R.string.dark_theme),
+            keywords = listOf("dark", "light", "theme", "mode", "amoled"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.contrast),
+            title = stringResource(R.string.pure_black),
+            keywords = listOf("pitch", "black", "amoled", "oled", "dark"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.language),
+            title = stringResource(R.string.app_language),
+            keywords = listOf("app", "language", "locale", "translation"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.gradient),
+            title = stringResource(R.string.player_background_style),
+            keywords = listOf("player", "background", "style", "blur", "gradient"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.line_curve),
+            title = "Formas y esquinas",
             keywords = listOf("thumbnail", "corner", "radius", "shape", "curve"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
