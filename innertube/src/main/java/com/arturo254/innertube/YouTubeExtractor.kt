@@ -7,7 +7,6 @@ import org.mozilla.javascript.Function
 import org.mozilla.javascript.Scriptable
 import java.io.File
 import java.net.URLDecoder
-import java.net.URLEncoder
 
 object YouTubeExtractor {
     private val client = OkHttpClient.Builder().build()
@@ -25,7 +24,6 @@ object YouTubeExtractor {
     private var sigFunction: Function? = null
     private var nScope: Scriptable? = null
     private var nFunction: Function? = null
-    private val rhinoLock = Any()
 
     var cacheDir: File? = null
 
@@ -55,11 +53,118 @@ object YouTubeExtractor {
                 }
                 if (isReady) {
                     runCatching { ensureRhinoCompiled() }
+                    runCatching { saveCacheIfComplete() }
                 }
             } catch (e: Exception) {
                 println("[YouTubeExtractor] ensureInitialized failed: ${e.message}")
             }
         }
+    }
+
+    private fun prepareSignatureDeobfuscator(js: String) {
+        val funcNameRegex = Regex("""\b[cs]\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\(""")
+        val match = funcNameRegex.find(js)
+        if (match != null) {
+            deobfuscateFuncName = match.groupValues[1]
+            val funcBodyRegex = Regex("""(?x)(?:function\s+${deobfuscateFuncName}|var\s+${deobfuscateFuncName}\s*=\s*function)\s*\(([^)]*)\)\s*\{([^}]+)\}""")
+            val funcMatch = funcBodyRegex.find(js)
+            if (funcMatch != null) {
+                val args = funcMatch.groupValues[1]
+                val body = funcMatch.groupValues[2]
+                
+                val helperObjRegex = Regex(""";([a-zA-Z0-9$]+)\.[a-zA-Z0-9$]+\(""")
+                val helperObjMatch = helperObjRegex.find(body)
+                var helperCode = ""
+                if (helperObjMatch != null) {
+                    val helperName = helperObjMatch.groupValues[1]
+                    val helperRegex = Regex("""var\s+${helperName}\s*=\s*\{[\s\S]*?\};\s*""")
+                    helperCode = helperRegex.find(js)?.value ?: ""
+                }
+                deobfuscateJsCode = "$helperCode\nfunction ${deobfuscateFuncName}($args) {$body}"
+            }
+        }
+    }
+
+    private fun prepareThrottlingDeobfuscator(js: String) {
+        val funcNameRegex = Regex("""\b[a-zA-Z0-9$]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\(""")
+        val match = funcNameRegex.find(js)
+        if (match != null) {
+            transformNFuncName = match.groupValues[1]
+            val funcBodyRegex = Regex("""(?x)(?:function\s+${transformNFuncName}|var\s+${transformNFuncName}\s*=\s*function)\s*\(([^)]*)\)\s*\{([^}]+)\}""")
+            val funcMatch = funcBodyRegex.find(js)
+            if (funcMatch != null) {
+                val args = funcMatch.groupValues[1]
+                val body = funcMatch.groupValues[2]
+                transformNJsCode = "function ${transformNFuncName}($args) {$body}"
+            }
+        }
+    }
+
+    private fun ensureRhinoCompiled() {
+        val ctx = Context.enter()
+        ctx.optimizationLevel = -1
+        try {
+            if (deobfuscateJsCode != null && deobfuscateFuncName != null) {
+                sigScope = ctx.initStandardObjects()
+                ctx.evaluateString(sigScope, deobfuscateJsCode, "sig", 1, null)
+                sigFunction = sigScope?.get(deobfuscateFuncName, sigScope) as? Function
+            }
+            if (transformNJsCode != null && transformNFuncName != null) {
+                nScope = ctx.initStandardObjects()
+                ctx.evaluateString(nScope, transformNJsCode, "n", 1, null)
+                nFunction = nScope?.get(transformNFuncName, nScope) as? Function
+            }
+        } finally {
+            Context.exit()
+        }
+    }
+
+    fun decryptUrl(signatureCipher: String): String? {
+        ensureInitialized()
+        val params = signatureCipher.split("&").associate {
+            val parts = it.split("=")
+            parts[0] to URLDecoder.decode(parts.getOrElse(1) { "" }, "UTF-8")
+        }
+        val url = params["url"] ?: return null
+        val sig = params["s"]
+        val sp = params["sp"] ?: "sig"
+        
+        var decryptedSig = sig
+        if (sig != null && sigFunction != null) {
+            val ctx = Context.enter()
+            ctx.optimizationLevel = -1
+            try {
+                decryptedSig = sigFunction?.call(ctx, sigScope, sigScope, arrayOf(sig)) as? String
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                Context.exit()
+            }
+        }
+        
+        val nParamUrl = if (decryptedSig != null) "$url&$sp=$decryptedSig" else url
+        return deobfuscateUrlNParam(nParamUrl)
+    }
+
+    fun deobfuscateUrlNParam(url: String): String {
+        ensureInitialized()
+        val nMatch = Regex("""&n=([^&]+)""").find(url) ?: return url
+        val nToken = nMatch.groupValues[1]
+        var decryptedN = nToken
+        
+        if (nFunction != null) {
+            val ctx = Context.enter()
+            ctx.optimizationLevel = -1
+            try {
+                decryptedN = nFunction?.call(ctx, nScope, nScope, arrayOf(nToken)) as? String ?: nToken
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                Context.exit()
+            }
+        }
+        
+        return url.replace("&n=$nToken", "&n=$decryptedN")
     }
 
     private fun loadCache(resolvedPlayerJsUrl: String): Boolean {
@@ -69,7 +174,6 @@ object YouTubeExtractor {
             if (!cachedUrlFile.exists()) return false
             val cachedUrl = cachedUrlFile.readText().trim()
             if (cachedUrl != resolvedPlayerJsUrl) {
-                println("[YouTubeExtractor] Cache is stale: cached=$cachedUrl, resolved=$resolvedPlayerJsUrl")
                 return false
             }
 
@@ -83,51 +187,39 @@ object YouTubeExtractor {
                 deobfuscateFuncName = sigFuncFile.readText().trim()
                 transformNJsCode = nJsFile.readText()
                 transformNFuncName = nFuncFile.readText().trim()
-                println("[YouTubeExtractor] Loaded decipher snippets from disk cache successfully")
                 return true
             }
         } catch (e: Exception) {
-            println("[YouTubeExtractor] Loading disk cache failed: ${e.message}")
         }
         return false
     }
 
-    private fun saveCache(resolvedPlayerJsUrl: String) {
-        val dir = cacheDir ?: return
-        try {
-            File(dir, "yt_player_url.txt").writeText(resolvedPlayerJsUrl)
-            File(dir, "yt_player_cache_time.txt").writeText(System.currentTimeMillis().toString())
-            deobfuscateJsCode?.let { File(dir, "yt_sig_js.txt").writeText(it) }
-            deobfuscateFuncName?.let { File(dir, "yt_sig_func.txt").writeText(it) }
-            transformNJsCode?.let { File(dir, "yt_n_js.txt").writeText(it) }
-            transformNFuncName?.let { File(dir, "yt_n_func.txt").writeText(it) }
-            println("[YouTubeExtractor] Saved decipher snippets to disk cache successfully")
-        } catch (e: Exception) {
-            println("[YouTubeExtractor] Saving disk cache failed: ${e.message}")
-        }
-    }
-
     private fun saveCacheIfComplete() {
         val resolvedUrl = currentResolvedUrl ?: return
+        val dir = cacheDir ?: return
         if (deobfuscateJsCode != null && transformNJsCode != null) {
-            saveCache(resolvedUrl)
+            try {
+                File(dir, "yt_player_url.txt").writeText(resolvedUrl)
+                File(dir, "yt_player_cache_time.txt").writeText(System.currentTimeMillis().toString())
+                deobfuscateJsCode?.let { File(dir, "yt_sig_js.txt").writeText(it) }
+                deobfuscateFuncName?.let { File(dir, "yt_sig_func.txt").writeText(it) }
+                transformNJsCode?.let { File(dir, "yt_n_js.txt").writeText(it) }
+                transformNFuncName?.let { File(dir, "yt_n_func.txt").writeText(it) }
+            } catch (e: Exception) {
+            }
         }
     }
 
     private fun fetchUrl(url: String): String {
-        println("[YouTubeExtractor] Fetching URL: $url")
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                println("[YouTubeExtractor] HTTP error ${response.code} for URL: $url")
                 throw java.io.IOException("HTTP error: ${response.code}")
             }
-            val body = response.body?.string() ?: ""
-            println("[YouTubeExtractor] Successfully fetched URL: $url (length=${body.length})")
-            return body
+            return response.body?.string() ?: ""
         }
     }
 
@@ -151,19 +243,30 @@ object YouTubeExtractor {
                             deobfuscateFuncName = sigFuncFile.readText().trim()
                             transformNJsCode = nJsFile.readText()
                             transformNFuncName = nFuncFile.readText().trim()
-                            println("[YouTubeExtractor] Cache hit — loaded decipher snippets instantly (age=${age / 1000}s). No network call.")
                             cachedPlayerJs = "" 
                             return ""
                         }
                     }
                 }
             } catch (e: Exception) {
-                println("[YouTubeExtractor] Failed to read fresh cache: ${e.message}")
             }
         }
 
-        println("[YouTubeExtractor] Cache miss — resolving YouTube player JS URL...")
         val iframeApi = fetchUrl("https://www.youtube.com/iframe_api")
         val hashMatch = Regex("""player\/([a-z0-9]{8})\/""").find(iframeApi)
         val playerJsUrl = if (hashMatch != null) {
-            val url = "https://www.youtube.com/s/player/${hashMatch.groupValues[1]}/player_ias.vflset/en_
+            "https://www.youtube.com/s/player/${hashMatch.groupValues[1]}/player_ias.vflset/en_US/base.js"
+        } else {
+            "https://www.youtube.com/s/player/f98246f4/player_ias.vflset/en_US/base.js"
+        }
+        currentResolvedUrl = playerJsUrl
+
+        if (loadCache(playerJsUrl)) {
+            return ""
+        }
+
+        val js = fetchUrl(playerJsUrl)
+        cachedPlayerJs = js
+        return js
+    }
+}
