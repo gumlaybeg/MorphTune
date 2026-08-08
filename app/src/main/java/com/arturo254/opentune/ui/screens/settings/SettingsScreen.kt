@@ -43,8 +43,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -74,12 +72,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -87,7 +88,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -102,8 +105,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -111,6 +112,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -120,6 +123,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -150,6 +154,11 @@ import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
 import com.arturo254.opentune.checkForUpdates
 import com.arturo254.opentune.isNewerVersion
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.ui.platform.UriHandler
+import com.arturo254.opentune.ui.component.SettingsCategory
+import com.arturo254.opentune.ui.component.SettingsCategoryItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -160,8 +169,6 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
-
-val LocalAnimationsDisabled = compositionLocalOf { false }
 
 // --- DIMENSIONS & ANIMATIONS ---
 
@@ -247,7 +254,7 @@ object SettingsAnimations {
 // --- MODELS ---
 
 data class SettingsQuickAction(
-    val icon: Painter,
+    val icon: androidx.compose.ui.graphics.painter.Painter,
     val label: String,
     val onClick: () -> Unit,
     val accentColor: Color,
@@ -259,7 +266,7 @@ data class SettingsGroup(
 )
 
 data class SettingsItem(
-    val icon: Painter,
+    val icon: androidx.compose.ui.graphics.painter.Painter,
     val title: String,
     val subtitle: String? = null,
     val badge: String? = null,
@@ -270,7 +277,7 @@ data class SettingsItem(
 )
 
 data class SettingsIntegrationAction(
-    val icon: Painter,
+    val icon: androidx.compose.ui.graphics.painter.Painter,
     val label: String,
     val onClick: () -> Unit,
     val accentColor: Color,
@@ -1403,32 +1410,10 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
     )
 }
 
-// --- COMPOSE MOCK WRAPPER FOR MUSIC TOGETHER ---
-
-@Composable
-fun MusicTogetherScreen(
-    navController: NavController,
-    scrollBehavior: TopAppBarScrollBehavior,
-    onBack: () -> Unit
-) {
-    BackHandler {
-        onBack()
-    }
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Music Together is not available in this build.", color = MaterialTheme.colorScheme.onSurface)
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onBack) {
-                Text("Go Back")
-            }
-        }
-    }
-}
-
 // --- CORE UTILITY FUNCTIONS ---
 
 @Composable
-fun VersionCard(uriHandler: UriHandler) {
+fun VersionCard(uriHandler: androidx.compose.ui.platform.UriHandler) {
     val context = LocalContext.current
     val appVersion = remember { getAppVersion(context) }
 
@@ -1449,7 +1434,7 @@ fun VersionCard(uriHandler: UriHandler) {
                             text = appVersion,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         )
                     }
                 },
@@ -1492,7 +1477,7 @@ fun UpdateCard(latestVersion: String = "") {
 
     if (showUpdateCard) {
         Spacer(Modifier.height(25.dp))
-        ElevatedCard(
+        androidx.compose.material3.ElevatedCard(
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 6.dp
             ),
@@ -1519,7 +1504,7 @@ fun UpdateCard(latestVersion: String = "") {
                     text = "New Version: $currentLatestVersion",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 18.sp,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                     ),
                     color = MaterialTheme.colorScheme.secondary,
                 )
@@ -1530,7 +1515,7 @@ fun UpdateCard(latestVersion: String = "") {
                     text = "Warning ",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 16.sp,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                     ),
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -1787,5 +1772,682 @@ suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
     } catch (e: Exception) {
         e.printStackTrace()
         return@withContext null
+    }
+}
+
+enum class DownloadStatus {
+    NOT_STARTED,
+    DOWNLOADING,
+    COMPLETED,
+    ERROR
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+fun getAppVersion(context: Context): String {
+    return try {
+        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                0
+            )
+        }
+        packageInfo.versionName ?: "Unknown"
+    } catch (e: PackageManager.NameNotFoundException) {
+        "Unknown"
+    }
+}
+
+// --- COMPOSE MOCK WRAPPER FOR MUSIC TOGETHER ---
+
+@Composable
+fun MusicTogetherScreen(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior,
+    onBack: () -> Unit
+) {
+    BackHandler {
+        onBack()
+    }
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Music Together is not available in this build.", color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onBack) {
+                Text("Go Back")
+            }
+        }
+    }
+}
+
+// --- ADAPTIVE LAYOUT COMPOSABLES ---
+
+@Composable
+fun AdaptiveSettingsLayout(
+    state: SettingsContentState,
+    modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
+    topPadding: Dp = 0.dp,
+) {
+    val layoutMode = resolveLayoutMode()
+    val animationsDisabled = LocalAnimationsDisabled.current
+
+    var heroVisible by remember { mutableStateOf(false) }
+    var bannerVisible by remember { mutableStateOf(false) }
+    var quickActionsVisible by remember { mutableStateOf(false) }
+    var integrationsVisible by remember { mutableStateOf(false) }
+    var categoriesVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(animationsDisabled) {
+        if (animationsDisabled) {
+            heroVisible = true
+            bannerVisible = true
+            quickActionsVisible = true
+            integrationsVisible = true
+            categoriesVisible = true
+            return@LaunchedEffect
+        }
+
+        val anim = Animatable(0f)
+        anim.animateTo(1f, tween(50))
+        heroVisible = true
+        anim.animateTo(1f, tween(60))
+        bannerVisible = true
+        anim.animateTo(1f, tween(60))
+        quickActionsVisible = true
+        anim.animateTo(1f, tween(70))
+        integrationsVisible = true
+        anim.animateTo(1f, tween(70))
+        categoriesVisible = true
+    }
+
+    val quickActionColumns = when (layoutMode) {
+        SettingsLayoutMode.COMPACT -> SettingsDimensions.CompactColumns
+        SettingsLayoutMode.MEDIUM -> SettingsDimensions.MediumColumns
+        SettingsLayoutMode.EXPANDED -> SettingsDimensions.ExpandedColumns
+    }
+
+    when (layoutMode) {
+        SettingsLayoutMode.COMPACT -> {
+            CompactSettingsLayout(
+                state = state,
+                listState = listState,
+                quickActionColumns = quickActionColumns,
+                heroVisible = heroVisible,
+                bannerVisible = bannerVisible,
+                quickActionsVisible = quickActionsVisible,
+                integrationsVisible = integrationsVisible,
+                categoriesVisible = categoriesVisible,
+                topPadding = topPadding,
+                modifier = modifier,
+            )
+        }
+        SettingsLayoutMode.MEDIUM -> {
+            MediumSettingsLayout(
+                state = state,
+                quickActionColumns = quickActionColumns,
+                heroVisible = heroVisible,
+                bannerVisible = bannerVisible,
+                quickActionsVisible = quickActionsVisible,
+                integrationsVisible = integrationsVisible,
+                categoriesVisible = categoriesVisible,
+                topPadding = topPadding,
+                modifier = modifier,
+            )
+        }
+        SettingsLayoutMode.EXPANDED -> {
+            ExpandedSettingsLayout(
+                state = state,
+                quickActionColumns = quickActionColumns,
+                heroVisible = heroVisible,
+                bannerVisible = bannerVisible,
+                quickActionsVisible = quickActionsVisible,
+                integrationsVisible = integrationsVisible,
+                categoriesVisible = categoriesVisible,
+                topPadding = topPadding,
+                modifier = modifier,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactSettingsLayout(
+    state: SettingsContentState,
+    listState: LazyListState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            ),
+        contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+    ) {
+        if (!state.isSearchActive) {
+            item(key = "hero") {
+                AnimatedVisibility(
+                    visible = heroVisible,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        slideInVertically(
+                            initialOffsetY = { -it / 5 },
+                            animationSpec = SettingsAnimations.entranceSpring(),
+                        ),
+                ) {
+                    SettingsProfileHeader(
+                        state = state.profileHeader,
+                        onClick = state.onProfileHeaderClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(top = 4.dp, bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "permission") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showPermissionBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsPermissionBanner(
+                        onRequestPermission = state.onRequestPermission,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "update") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showUpdateBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsUpdateBanner(
+                        latestVersion = state.latestVersion,
+                        onClick = state.onUpdateClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "beta_update") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showBetaUpdateBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsBetaUpdateBanner(
+                        latestVersion = state.latestBetaVersion,
+                        onClick = state.onBetaUpdateClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+
+        if (state.isSearchActive && state.searchQuery.isBlank()) {
+            SearchHistorySection(state, pad)
+        } else if (state.isSearchActive && !state.hasSearchResults) {
+            item(key = "empty") {
+                Spacer(modifier = Modifier.height(24.dp).animateItem())
+                SettingsSearchEmpty(
+                    modifier = Modifier.padding(horizontal = pad).animateItem(),
+                )
+            }
+        } else {
+            if (state.quickActions.isNotEmpty()) {
+                item(key = "quickActions") {
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = quickActionsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            slideInVertically(
+                                initialOffsetY = { it / 6 },
+                                animationSpec = SettingsAnimations.entranceSpring(),
+                            ),
+                    ) {
+                        SettingsQuickActionsSection(
+                            actions = state.quickActions,
+                            columns = quickActionColumns,
+                            modifier = Modifier
+                                .padding(horizontal = pad)
+                                .padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.integrations.isNotEmpty()) {
+                item(key = "integrations") {
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = integrationsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            slideInVertically(
+                                initialOffsetY = { it / 6 },
+                                animationSpec = SettingsAnimations.entranceSpring(),
+                            ),
+                    ) {
+                        SettingsIntegrationsSection(
+                            integrations = state.integrations,
+                            modifier = Modifier
+                                .padding(horizontal = pad)
+                                .padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                item(key = "internalSearchResults") {
+                    SettingsGroupCard(
+                        group = state.internalGroup,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing)
+                            .animateItem(),
+                    )
+                }
+            }
+
+            items(
+                count = state.groups.size,
+                key = { state.groups[it].title },
+            ) { index ->
+                val group = state.groups[index]
+                AnimatedVisibility(
+                    modifier = Modifier.animateItem(),
+                    visible = categoriesVisible,
+                    enter = fadeIn(
+                        SettingsAnimations.staggerTween(index)
+                    ) + slideInVertically(
+                        initialOffsetY = { it / 5 },
+                        animationSpec = SettingsAnimations.staggerTween(index),
+                    ),
+                ) {
+                    SettingsGroupCard(
+                        group = group,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediumSettingsLayout(
+    state: SettingsContentState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            )
+            .padding(horizontal = pad),
+        horizontalArrangement = Arrangement.spacedBy(pad),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(SettingsDimensions.MediumPaneLeftWeight)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (!state.isSearchActive) {
+                item(key = "hero") {
+                    AnimatedVisibility(
+                        visible = heroVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsProfileHeader(
+                            state = state.profileHeader,
+                            onClick = state.onProfileHeaderClick,
+                            modifier = Modifier.padding(top = 4.dp, bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "permission") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showPermissionBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsPermissionBanner(
+                            onRequestPermission = state.onRequestPermission,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsUpdateBanner(
+                            latestVersion = state.latestVersion,
+                            onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "beta_update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showBetaUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsBetaUpdateBanner(
+                            latestVersion = state.latestBetaVersion,
+                            onClick = state.onBetaUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
+                if (state.quickActions.isNotEmpty()) {
+                    item(key = "quickActions") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = quickActionsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsQuickActionsSection(
+                                actions = state.quickActions,
+                                columns = 2,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+
+                if (state.integrations.isNotEmpty()) {
+                    item(key = "integrations") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = integrationsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsIntegrationsSection(
+                                integrations = state.integrations,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(SettingsDimensions.MediumPaneRightWeight)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (state.isSearchActive && state.searchQuery.isBlank()) {
+                SearchHistorySection(state, 0.dp)
+            } else if (state.isSearchActive && !state.hasSearchResults) {
+                item(key = "empty") {
+                    Spacer(modifier = Modifier.height(24.dp).animateItem())
+                    SettingsSearchEmpty(modifier = Modifier.animateItem())
+                }
+            } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing).animateItem(),
+                        )
+                    }
+                }
+
+                items(
+                    count = state.groups.size,
+                    key = { state.groups[it].title },
+                ) { index ->
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = categoriesVisible,
+                        enter = fadeIn(
+                            SettingsAnimations.staggerTween(index)
+                        ) + slideInVertically(
+                            initialOffsetY = { it / 5 },
+                            animationSpec = SettingsAnimations.staggerTween(index),
+                        ),
+                    ) {
+                        SettingsGroupCard(
+                            group = state.groups[index],
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedSettingsLayout(
+    state: SettingsContentState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            )
+            .padding(horizontal = pad),
+        horizontalArrangement = Arrangement.spacedBy(pad),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .width(SettingsDimensions.ExpandedListPaneWidth)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (!state.isSearchActive) {
+                item(key = "hero") {
+                    AnimatedVisibility(
+                        visible = heroVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsProfileHeader(
+                            state = state.profileHeader,
+                            onClick = state.onProfileHeaderClick,
+                            modifier = Modifier.padding(top = 4.dp, bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "permission") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showPermissionBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsPermissionBanner(
+                            onRequestPermission = state.onRequestPermission,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsUpdateBanner(
+                            latestVersion = state.latestVersion,
+                            onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "beta_update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showBetaUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsBetaUpdateBanner(
+                            latestVersion = state.latestBetaVersion,
+                            onClick = state.onBetaUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
+                if (state.quickActions.isNotEmpty()) {
+                    item(key = "quickActions") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = quickActionsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsQuickActionsSection(
+                                actions = state.quickActions,
+                                columns = 2,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+
+                if (state.integrations.isNotEmpty()) {
+                    item(key = "integrations") {
+                        AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
+                            visible = integrationsVisible,
+                            enter = fadeIn(SettingsAnimations.entranceSpring()),
+                        ) {
+                            SettingsIntegrationsSection(
+                                integrations = state.integrations,
+                                modifier = Modifier.padding(bottom = spacing),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (state.isSearchActive && state.searchQuery.isBlank()) {
+                SearchHistorySection(state, 0.dp)
+            } else if (state.isSearchActive && !state.hasSearchResults) {
+                item(key = "empty") {
+                    Spacer(modifier = Modifier.height(24.dp).animateItem())
+                    SettingsSearchEmpty(modifier = Modifier.animateItem())
+                }
+            } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing).animateItem(),
+                        )
+                    }
+                }
+
+                items(
+                    count = state.groups.size,
+                    key = { state.groups[it].title },
+                ) { index ->
+                    AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
+                        visible = categoriesVisible,
+                        enter = fadeIn(
+                            SettingsAnimations.staggerTween(index)
+                        ) + slideInVertically(
+                            initialOffsetY = { it / 5 },
+                            animationSpec = SettingsAnimations.staggerTween(index),
+                        ),
+                    ) {
+                        SettingsGroupCard(
+                            group = state.groups[index],
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
