@@ -449,16 +449,16 @@ class LocaleManager private constructor(private val context: Context) {
 
     fun restartApp(context: Context) {
         try {
-            val packageManager = context.packageManager
-            val intent = packageManager.getLaunchIntentForPackage(context.packageName)
-
-            intent?.let {
-                val componentName = it.component
-                val mainIntent = Intent.makeRestartActivityTask(componentName)
-                mainIntent.setPackage(context.packageName)
-
-                context.startActivity(mainIntent)
-                Runtime.getRuntime().exit(0)
+            val activity = context.findActivity()
+            if (activity != null) {
+                activity.recreate()
+            } else {
+                val packageManager = context.packageManager
+                val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+                intent?.let {
+                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    context.startActivity(it)
+                }
             }
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error restarting application")
@@ -1007,4 +1007,10 @@ abstract class LocaleAwareApplication : android.app.Application() {
         super.onConfigurationChanged(newConfig)
         localeManager.clearCache()
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? {
+    if (this is Activity) return this
+    if (this is android.content.ContextWrapper) return baseContext.findActivity()
+    return null
 }
