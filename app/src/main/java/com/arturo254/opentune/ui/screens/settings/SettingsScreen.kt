@@ -1,29 +1,22 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
-
 package com.arturo254.opentune.ui.screens.settings
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.Settings
-import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -31,19 +24,18 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,43 +47,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,72 +87,53 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.navigation.NavController
+import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.arturo254.innertube.utils.parseCookieString
 import com.arturo254.opentune.BuildConfig
 import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.R
-import com.arturo254.opentune.constants.AccountEmailKey
-import com.arturo254.opentune.constants.AccountNameKey
-import com.arturo254.opentune.constants.InnerTubeCookieKey
-import com.arturo254.opentune.ui.component.IconButton
-import com.arturo254.opentune.ui.component.TopSearch
-import com.arturo254.opentune.ui.utils.backToMain
-import com.arturo254.opentune.utils.rememberPreference
-import com.arturo254.opentune.viewmodels.HomeViewModel
-import com.arturo254.opentune.viewmodels.NewReleaseViewModel
-import com.arturo254.opentune.ui.component.ChangelogScreen
+import com.arturo254.opentune.checkForUpdates
+import com.arturo254.opentune.isNewerVersion
 import com.arturo254.opentune.ui.component.AvatarPreferenceManager
 import com.arturo254.opentune.ui.component.AvatarSelection
-import com.arturo254.opentune.ui.component.LanguagePreference
-import com.arturo254.opentune.ui.component.SettingsCategory
-import com.arturo254.opentune.ui.component.SettingsCategoryItem
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.material3.rememberModalBottomSheetState
-import java.io.IOException
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
-import java.net.URL
-import timber.log.Timber
+import com.arturo254.opentune.ui.component.ChangelogScreen
+import com.arturo254.opentune.ui.component.TopSearch
+import com.arturo254.opentune.ui.utils.backToMain
+import com.arturo254.opentune.constants.AccountNameKey
+import com.arturo254.opentune.constants.InnerTubeCookieKey
+import com.arturo254.opentune.constants.AccountEmailKey
+import com.arturo254.opentune.constants.AccountChannelHandleKey
+import com.arturo254.opentune.constants.DefaultOpenTabKey
+import com.arturo254.opentune.utils.rememberPreference
+import com.arturo254.opentune.utils.rememberEnumPreference
+import com.arturo254.opentune.ui.player.UpdateDownloadDialog
+import com.arturo254.opentune.ui.player.DownloadStatus
 
-val LocalAnimationsDisabled = compositionLocalOf { false }
-
-// --- DIMENSIONS & ANIMATIONS ---
+// ==========================================
+// 1. DIMENSIONS & ANIMATION CONFIGURATION
+// ==========================================
 
 object SettingsDimensions {
     val GroupCardCornerRadius = 16.dp
@@ -177,6 +144,7 @@ object SettingsDimensions {
     val RowIconCornerRadius = 12.dp
 
     val ScreenHorizontalPadding = 16.dp
+    val CardInternalPadding = 16.dp
     val SectionSpacing = 14.dp
     val RowVerticalPadding = 14.dp
     val RowHorizontalPadding = 16.dp
@@ -217,42 +185,21 @@ object SettingsAnimations {
     val IconPressRotation = 5f
     val PillPressLift = (-2).dp
 
+    val EntranceFadeDuration = 300
     val EntranceSlideDuration = 350
     val StaggerDelayPerItem = 80
     val ExitFadeDuration = 200
 
-    @Composable
-    fun <T> pressSpring(): FiniteAnimationSpec<T> =
-        if (LocalAnimationsDisabled.current) snap()
-        else spring(stiffness = Spring.StiffnessMedium)
-
-    @Composable
-    fun <T> entranceSpring(): FiniteAnimationSpec<T> =
-        if (LocalAnimationsDisabled.current) snap()
-        else spring(stiffness = Spring.StiffnessLow, dampingRatio = 0.85f)
-
-    @Composable
-    fun <T> exitTween(): FiniteAnimationSpec<T> =
-        if (LocalAnimationsDisabled.current) snap()
-        else template()
-
-    @Composable
-    fun <T> template(): FiniteAnimationSpec<T> =
-        if (LocalAnimationsDisabled.current) snap()
-        else tween(durationMillis = ExitFadeDuration)
-
-    @Composable
-    fun <T> fadeTween(durationMillis: Int): FiniteAnimationSpec<T> =
-        if (LocalAnimationsDisabled.current) snap()
-        else tween(durationMillis = durationMillis)
-
-    @Composable
-    fun <T> staggerTween(index: Int): FiniteAnimationSpec<T> =
-        if (LocalAnimationsDisabled.current) snap()
-        else tween(durationMillis = EntranceSlideDuration, delayMillis = index * StaggerDelayPerItem)
+    fun <T> pressSpring() = spring<T>(stiffness = Spring.StiffnessHigh)
+    fun <T> entranceSpring() = spring<T>(
+        stiffness = Spring.StiffnessLow,
+        dampingRatio = 0.85f,
+    )
 }
 
-// --- MODELS ---
+// ==========================================
+// 2. DATA MODELS
+// ==========================================
 
 data class SettingsQuickAction(
     val icon: Painter,
@@ -284,61 +231,117 @@ data class SettingsIntegrationAction(
     val accentColor: Color,
 )
 
-// --- MAIN SCREEN ---
+enum class SettingsLayoutMode {
+    COMPACT,
+    MEDIUM,
+    EXPANDED,
+}
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+data class SettingsContentState(
+    val quickActions: List<SettingsQuickAction>,
+    val integrations: List<SettingsIntegrationAction>,
+    val groups: List<SettingsGroup>,
+    val internalGroup: SettingsGroup?,
+    val showPermissionBanner: Boolean,
+    val showUpdateBanner: Boolean,
+    val latestVersion: String,
+    val isSearchActive: Boolean,
+    val hasSearchResults: Boolean,
+    val onRequestPermission: () -> Unit,
+    val onUpdateClick: () -> Unit,
+)
+
+// ==========================================
+// 3. SEARCH & FILTER UTILS
+// ==========================================
+
+fun filterQuickActions(
+    actions: List<SettingsQuickAction>,
+    query: String,
+): List<SettingsQuickAction> {
+    if (query.isBlank()) return actions
+    return actions.filter { it.label.contains(query, ignoreCase = true) }
+}
+
+fun filterSettingsGroups(
+    groups: List<SettingsGroup>,
+    query: String,
+): List<SettingsGroup> {
+    if (query.isBlank()) return groups
+    return groups.mapNotNull { group ->
+        if (group.title.contains(query, ignoreCase = true)) {
+            group
+        } else {
+            val filtered = group.items.filter { matchesQuery(it, query) }
+            if (filtered.isEmpty()) null else group.copy(items = filtered)
+        }
+    }
+}
+
+fun matchesQuery(
+    item: SettingsItem,
+    query: String,
+): Boolean {
+    if (item.title.contains(query, ignoreCase = true)) return true
+    if (item.subtitle?.contains(query, ignoreCase = true) == true) return true
+    if (item.badge?.contains(query, ignoreCase = true) == true) return true
+    return item.keywords.any { keyword ->
+        keyword.contains(query, ignoreCase = true) ||
+            query.contains(keyword, ignoreCase = true)
+    }
+}
+
+fun filterInternalItems(
+    items: List<SettingsItem>,
+    query: String,
+): List<SettingsItem> {
+    if (query.isBlank()) return emptyList()
+    return items.filter { matchesQuery(it, query) }
+}
+
+fun filterIntegrations(
+    integrations: List<SettingsIntegrationAction>,
+    query: String,
+): List<SettingsIntegrationAction> {
+    if (query.isBlank()) return integrations
+    return integrations.filter { it.label.contains(query, ignoreCase = true) }
+}
+
+// ==========================================
+// 4. MAIN COMPOSABLES & LAYOUTS
+// ==========================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     latestVersion: Long,
-    navController: NavController,
+    navController: NavHostController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val focusManager = LocalFocusManager.current
-    val animationsDisabled = LocalAnimationsDisabled.current
+    val coroutineScope = rememberCoroutineScope()
+    val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val listState = rememberLazyListState()
-    val viewModel: HomeViewModel = hiltViewModel()
 
-    val newsViewModel: NewReleaseViewModel = hiltViewModel()
-    val hasUnreadNews by newsViewModel.hasNewReleases.collectAsState()
-
-    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn = remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }
-    val isLoading = false
-
+    val avatarManager = remember { AvatarPreferenceManager(context) }
+    val currentSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
     val accountName by rememberPreference(AccountNameKey, "")
-    val accountImageUrl by viewModel.accountImageUrl.collectAsState()
     val accountEmail by rememberPreference(AccountEmailKey, "")
+    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
 
     var isSearching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf(TextFieldValue()) }
     val focusRequester = remember { FocusRequester() }
 
-    var showUpdateDialog by remember { mutableStateOf(false) }
-    var showBetaUpdateDialog by remember { mutableStateOf(false) }
-
-    var hasUpdate by remember { mutableStateOf(false) }
-    var fetchedLatestVersion by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
-
-    var hasBetaUpdate by remember { mutableStateOf(false) }
-    var fetchedLatestBetaVersion by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
-
-    LaunchedEffect(Unit) {
-        val newVersion = checkForUpdates()
-        if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
-            hasUpdate = true
-            fetchedLatestVersion = newVersion
-        }
-        
-        val newBetaVersion = checkForBetaUpdates()
-        if (newBetaVersion != null && isNewerVersion(newBetaVersion, BuildConfig.VERSION_NAME)) {
-            if (newVersion == null || isNewerVersion(newBetaVersion, newVersion)) {
-                hasBetaUpdate = true
-                fetchedLatestBetaVersion = newBetaVersion
-            }
-        }
-    }
+    var showTranslateDialog by remember { mutableStateOf(false) }
+    var showChangelogSheet by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var currentLatestVersion by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
 
     LaunchedEffect(isSearching) {
         if (isSearching) {
@@ -373,22 +376,22 @@ fun SettingsScreen(
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
-        isStorageGranted = ContextCompat.checkSelfPermission(context, storagePermission) == PackageManager.PERMISSION_GRANTED
+    ) { result ->
+        isStorageGranted = result[storagePermission] == true || isStorageGranted
         if (notificationPermission != null) {
-            isNotificationGranted = ContextCompat.checkSelfPermission(context, notificationPermission) == PackageManager.PERMISSION_GRANTED
+            isNotificationGranted = result[notificationPermission] == true || isNotificationGranted
         }
     }
 
-    val shouldShowPermissionHint = if (notificationPermission != null) {
-        !isNotificationGranted
-    } else {
-        !isStorageGranted
-    }
+    val shouldShowPermissionHint = !isStorageGranted || !isNotificationGranted
 
-    val settingsPrefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    var hasRequestedPermissions by remember {
-        mutableStateOf(settingsPrefs.getBoolean("has_requested_permissions", false))
+    var hasUpdate by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val newVersion = checkForUpdates()
+        if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
+            hasUpdate = true
+            currentLatestVersion = newVersion
+        }
     }
 
     val resetSearch: () -> Unit = {
@@ -399,18 +402,26 @@ fun SettingsScreen(
 
     val quickActions = buildQuickActions(navController, resetSearch)
     val integrationActions = buildIntegrationActions(navController, resetSearch)
-    val settingsGroups = buildSettingsGroups(navController, resetSearch, onChangelogClick = { navController.navigate("settings/changelog") }, hasUnreadNews)
+    
+    val settingsGroups = buildSettingsGroups(
+        navController = navController,
+        isLoggedIn = isLoggedIn,
+        accountEmail = accountEmail,
+        onTranslateClick = { showTranslateDialog = true },
+        onChangelogClick = { showChangelogSheet = true },
+        onDonateClick = { uriHandler.openUri("https://www.paypal.me/OpenTune") },
+        onTelegramClick = { uriHandler.openUri("https://t.me/opentune_updates") },
+        resetSearch = resetSearch
+    )
     val internalItems = buildInternalItems(navController, resetSearch)
 
     val queryText = query.text.trim()
     val showSearchBar = isSearching || queryText.isNotBlank()
 
-    val searchResultsTitle = "Resultados de búsqueda"
-
-    val filteredQuickActions = if (queryText.isBlank()) emptyList() else filterQuickActions(quickActions, queryText)
-    val filteredIntegrations = if (queryText.isBlank()) emptyList() else filterIntegrations(integrationActions, queryText)
-    val filteredGroups = if (queryText.isBlank()) emptyList() else filterSettingsGroups(settingsGroups, queryText, searchResultsTitle)
-    val filteredInternalItems = if (queryText.isBlank()) emptyList() else filterInternalItems(internalItems, queryText)
+    val filteredQuickActions = filterQuickActions(quickActions, queryText)
+    val filteredIntegrations = filterIntegrations(integrationActions, queryText)
+    val filteredGroups = filterSettingsGroups(settingsGroups, queryText)
+    val filteredInternalItems = filterInternalItems(internalItems, queryText)
 
     val hasSearchResults by remember(
         filteredQuickActions,
@@ -428,33 +439,21 @@ fun SettingsScreen(
 
     val internalGroup = if (filteredInternalItems.isNotEmpty()) {
         SettingsGroup(
-            title = "Ajustes internos",
+            title = stringResource(R.string.internal_subcategory_settings),
             items = filteredInternalItems,
         )
     } else null
 
     val contentState = SettingsContentState(
-        profileHeader = SettingsProfileState(
-            isLoading = isLoading,
-            isLoggedIn = isLoggedIn,
-            accountName = accountName,
-            accountEmail = accountEmail,
-            accountImageUrl = if (isLoggedIn) accountImageUrl else null,
-        ),
-        quickActions = quickActions,
-        integrations = integrationActions,
-        groups = settingsGroups,
-        internalGroup = null,
+        quickActions = if (queryText.isBlank()) quickActions else filteredQuickActions,
+        integrations = if (queryText.isBlank()) integrationActions else filteredIntegrations,
+        groups = if (queryText.isBlank()) settingsGroups else filteredGroups,
+        internalGroup = if (queryText.isNotBlank()) internalGroup else null,
         showPermissionBanner = shouldShowPermissionHint,
         showUpdateBanner = hasUpdate,
-        latestVersion = fetchedLatestVersion,
-        showBetaUpdateBanner = hasBetaUpdate,
-        latestBetaVersion = fetchedLatestBetaVersion,
-        isSearchActive = false,
-        searchQuery = queryText,
-        searchHistory = emptyList(),
+        latestVersion = currentLatestVersion,
+        isSearchActive = queryText.isNotBlank(),
         hasSearchResults = hasSearchResults,
-        onProfileHeaderClick = { navController.navigate("settings/account") },
         onRequestPermission = {
             val toRequest = buildList {
                 if (!isStorageGranted) add(storagePermission)
@@ -463,56 +462,15 @@ fun SettingsScreen(
                 }
             }
             if (toRequest.isNotEmpty()) {
-                var currentContext = context
-                var activity: android.app.Activity? = null
-                while (currentContext is android.content.ContextWrapper) {
-                    if (currentContext is android.app.Activity) {
-                        activity = currentContext
-                        break
-                    }
-                    currentContext = currentContext.baseContext
-                }
-
-                val shouldShowRationale = activity != null && toRequest.any {
-                    androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, it)
-                }
-
-                if (hasRequestedPermissions && !shouldShowRationale) {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                    }
-                    context.startActivity(intent)
-                } else {
-                    hasRequestedPermissions = true
-                    settingsPrefs.edit().putBoolean("has_requested_permissions", true).apply()
-                    permissionLauncher.launch(toRequest.toTypedArray())
-                }
+                permissionLauncher.launch(toRequest.toTypedArray())
             }
         },
-        onProfileHeaderClick = { navController.navigate("settings/account") },
-        onRequestPermission = { },
-        onUpdateClick = { showUpdateDialog = true },
-        onBetaUpdateClick = { showBetaUpdateDialog = true },
-        onSearchHistoryItemClick = { },
-        onRemoveSearchHistoryItem = { },
-        onClearSearchHistory = { },
-    )
-
-    val searchState = contentState.copy(
-        isSearchActive = true,
-        quickActions = filteredQuickActions,
-        integrations = filteredIntegrations,
-        groups = filteredGroups,
-        internalGroup = internalGroup,
+        onUpdateClick = { showDownloadDialog = true },
     )
 
     Scaffold(
         topBar = {
-            AnimatedVisibility(
-                visible = !showSearchBar,
-                enter = fadeIn(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 220)),
-                exit = fadeOut(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 160)),
-            ) {
+            if (!showSearchBar) {
                 LargeTopAppBar(
                     title = {
                         Text(
@@ -537,7 +495,7 @@ fun SettingsScreen(
                             onLongClick = {},
                         ) {
                             Icon(
-                                painterResource(R.drawable.search),
+                                painter = painterResource(R.drawable.search),
                                 contentDescription = null,
                             )
                         }
@@ -555,11 +513,7 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize(),
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            AnimatedVisibility(
-                visible = !showSearchBar,
-                enter = fadeIn(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 220)),
-                exit = fadeOut(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 160)),
-            ) {
+            if (!showSearchBar) {
                 AdaptiveSettingsLayout(
                     state = contentState,
                     listState = listState,
@@ -570,15 +524,13 @@ fun SettingsScreen(
 
             AnimatedVisibility(
                 visible = showSearchBar,
-                enter = fadeIn(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 220)),
-                exit = fadeOut(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 160)),
+                enter = fadeIn(tween(durationMillis = 220)),
+                exit = fadeOut(tween(durationMillis = 160)),
             ) {
                 TopSearch(
                     query = query,
                     onQueryChange = { query = it },
-                    onSearch = { 
-                        focusManager.clearFocus() 
-                    },
+                    onSearch = { focusManager.clearFocus() },
                     active = showSearchBar,
                     onActiveChange = { active ->
                         if (active) {
@@ -620,6 +572,9 @@ fun SettingsScreen(
                     },
                     focusRequester = focusRequester,
                 ) {
+                    val searchState = contentState.copy(
+                        isSearchActive = true,
+                    )
                     AdaptiveSettingsLayout(
                         state = searchState,
                         modifier = Modifier.fillMaxWidth(),
@@ -629,1119 +584,89 @@ fun SettingsScreen(
         }
     }
 
-    if (showUpdateDialog) {
+    // Modal & Dialog Management
+    if (showTranslateDialog) {
+        AlertDialog(
+            onDismissRequest = { showTranslateDialog = false },
+            title = { Text(stringResource(R.string.Redirección)) },
+            text = { Text(stringResource(R.string.poeditor_redirect)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showTranslateDialog = false
+                        uriHandler.openUri("https://poeditor.com/join/project/208BwCVazA")
+                    }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showChangelogSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showChangelogSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            dragHandle = {
+                Surface(
+                    modifier = Modifier
+                        .padding(vertical = 12.dp)
+                        .width(32.dp)
+                        .height(4.dp),
+                    shape = RoundedCornerShape(2.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                ) {}
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                ChangelogScreen()
+                Spacer(Modifier.height(32.dp))
+            }
+        }
+    }
+
+    if (showDownloadDialog) {
         UpdateDownloadDialog(
-            latestVersion = fetchedLatestVersion,
-            isBeta = false,
-            onDismiss = { showUpdateDialog = false }
-        )
-    }
-
-    if (showBetaUpdateDialog) {
-        UpdateDownloadDialog(
-            latestVersion = fetchedLatestBetaVersion,
-            isBeta = true,
-            onDismiss = { showBetaUpdateDialog = false }
+            latestVersion = currentLatestVersion,
+            onDismiss = { showDownloadDialog = false }
         )
     }
 }
 
-// --- SEARCH & FILTER LOGIC ---
-
-fun filterQuickActions(
-    actions: List<SettingsQuickAction>,
-    query: String,
-): List<SettingsQuickAction> {
-    if (query.isBlank()) return emptyList()
-    return actions.filter { it.label.contains(query, ignoreCase = true) }
-}
-
-fun filterSettingsGroups(
-    groups: List<SettingsGroup>,
-    query: String,
-    searchResultsTitle: String
-): List<SettingsGroup> {
-    if (query.isBlank()) return emptyList()
-    val allMatchedItems = groups.flatMap { it.items }.filter { matchesQuery(it, query) }
-        .sortedBy { it.title.indexOf(query, ignoreCase = true).let { idx -> if (idx < 0) 1000 else idx } }
-    
-    if (allMatchedItems.isEmpty()) return emptyList()
-    
-    return listOf(SettingsGroup(title = searchResultsTitle, items = allMatchedItems))
-}
-
-fun matchesQuery(
-    item: SettingsItem,
-    query: String,
-): Boolean {
-    if (item.title.contains(query, ignoreCase = true)) return true
-    if (item.subtitle?.contains(query, ignoreCase = true) == true) return true
-    if (item.badge?.contains(query, ignoreCase = true) == true) return true
-    return item.keywords.any { keyword ->
-        keyword.contains(query, ignoreCase = true) ||
-            query.contains(keyword, ignoreCase = true)
+@Composable
+fun resolveLayoutMode(): SettingsLayoutMode {
+    val windowInfo = currentWindowAdaptiveInfo().windowSizeClass
+    return when {
+        windowInfo.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
+            SettingsLayoutMode.EXPANDED
+        windowInfo.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
+            SettingsLayoutMode.MEDIUM
+        else ->
+            SettingsLayoutMode.COMPACT
     }
 }
 
-fun filterInternalItems(
-    items: List<SettingsItem>,
-    query: String,
-): List<SettingsItem> {
-    if (query.isBlank()) return emptyList()
-    return items.filter { matchesQuery(it, query) }
-}
-
-fun filterIntegrations(
-    integrations: List<SettingsIntegrationAction>,
-    query: String,
-): List<SettingsIntegrationAction> {
-    if (query.isBlank()) return emptyList()
-    return integrations.filter { it.label.contains(query, ignoreCase = true) }
-}
-
-// --- BUILDER FUNCTIONS ---
-
-@Composable
-private fun buildQuickActions(navController: NavController, resetSearch: () -> Unit): List<SettingsQuickAction> {
-    return listOf(
-        SettingsQuickAction(
-            icon = painterResource(R.drawable.palette),
-            label = stringResource(R.string.appearance),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") },
-            accentColor = MaterialTheme.colorScheme.primary
-        ),
-        SettingsQuickAction(
-            icon = painterResource(R.drawable.play),
-            label = stringResource(R.string.player_and_audio),
-            onClick = { resetSearch(); navController.navigate("settings/player") },
-            accentColor = MaterialTheme.colorScheme.secondary
-        ),
-        SettingsQuickAction(
-            icon = painterResource(R.drawable.language),
-            label = stringResource(R.string.content),
-            onClick = { resetSearch(); navController.navigate("settings/content") },
-            accentColor = MaterialTheme.colorScheme.tertiary
-        ),
-        SettingsQuickAction(
-            icon = painterResource(R.drawable.storage),
-            label = stringResource(R.string.storage),
-            onClick = { resetSearch(); navController.navigate("settings/storage") },
-            accentColor = MaterialTheme.colorScheme.onSurface
-        )
-    )
-}
-
-@Composable
-private fun buildIntegrationActions(
-    navController: NavController, 
-    resetSearch: () -> Unit
-): List<SettingsIntegrationAction> {
-    val uriHandler = LocalUriHandler.current
-    return listOf(
-        SettingsIntegrationAction(
-            icon = painterResource(R.drawable.discord),
-            label = stringResource(R.string.discord),
-            onClick = { resetSearch(); navController.navigate("settings/discord") },
-            accentColor = Color(0xFF5865F2)
-        ),
-        SettingsIntegrationAction(
-            icon = painterResource(R.drawable.github),
-            label = stringResource(R.string.github),
-            onClick = { resetSearch(); uriHandler.openUri("https://github.com/Arturo254/OpenTune") },
-            accentColor = MaterialTheme.colorScheme.onSurface
-        )
-    )
-}
-
-@Composable
-private fun buildSettingsGroups(
-    navController: NavController,
-    resetSearch: () -> Unit,
-    onChangelogClick: () -> Unit,
-    hasUnreadNews: Boolean
-): List<SettingsGroup> {
-    val uriHandler = LocalUriHandler.current
-    val context = LocalContext.current
-    return listOf(
-        SettingsGroup(
-            title = stringResource(R.string.general_settings),
-            items = listOf(
-                SettingsItem(
-                    icon = painterResource(R.drawable.person),
-                    title = stringResource(R.string.account),
-                    keywords = listOf("account", "login", "profile"),
-                    onClick = { resetSearch(); navController.navigate("settings/account") }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.security),
-                    title = stringResource(R.string.privacy),
-                    keywords = listOf("privacy", "history", "security"),
-                    onClick = { resetSearch(); navController.navigate("settings/privacy") }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.restore),
-                    title = stringResource(R.string.backup_restore),
-                    keywords = listOf("backup", "restore", "data"),
-                    onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.link),
-                    title = stringResource(R.string.open_supported_links),
-                    keywords = listOf("open", "supported", "links", "default"),
-                    onClick = { 
-                        resetSearch()
-                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        } else {
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.info),
-                    title = stringResource(R.string.about),
-                    keywords = listOf("about", "info", "version"),
-                    onClick = { resetSearch(); navController.navigate("settings/about") }
-                )
-            )
-        ),
-        SettingsGroup(
-            title = stringResource(R.string.community),
-            items = listOf(
-                SettingsItem(
-                    icon = painterResource(R.drawable.schedule),
-                    title = stringResource(R.string.Changelog),
-                    keywords = listOf("changelog", "updates", "features"),
-                    onClick = { resetSearch(); onChangelogClick() }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.telegram),
-                    title = stringResource(R.string.Telegramchanel),
-                    keywords = listOf("telegram", "community", "channel"),
-                    onClick = { resetSearch(); uriHandler.openUri("https://t.me/opentune_updates") }
-                )
-            )
-        )
-    )
-}
-
-@Composable
-private fun buildInternalItems(navController: NavController, resetSearch: () -> Unit): List<SettingsItem> {
-    val context = LocalContext.current
-    return listOf(
-        // Account
-        SettingsItem(
-            icon = painterResource(R.drawable.person),
-            title = stringResource(R.string.login),
-            keywords = listOf("account", "login", "google", "sign in"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.token),
-            title = stringResource(R.string.advanced_login),
-            keywords = listOf("advanced", "login", "token", "cookie"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.person),
-            title = stringResource(R.string.use_login_for_browse),
-            keywords = listOf("use", "login", "browse", "account"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.cached),
-            title = stringResource(R.string.ytm_sync),
-            keywords = listOf("youtube", "music", "sync", "ytm", "playlists"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-
-        // Appearance
-        SettingsItem(
-            icon = painterResource(R.drawable.palette),
-            title = stringResource(R.string.enable_dynamic_theme),
-            keywords = listOf("dynamic", "theme", "color", "material you"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.dark_mode),
-            title = stringResource(R.string.dark_theme),
-            keywords = listOf("dark", "light", "theme", "mode", "amoled"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.contrast),
-            title = stringResource(R.string.pure_black),
-            keywords = listOf("pitch", "black", "amoled", "oled", "dark"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.language),
-            title = stringResource(R.string.app_language),
-            keywords = listOf("app", "language", "locale", "translation"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.gradient),
-            title = stringResource(R.string.player_background_style),
-            keywords = listOf("player", "background", "style", "blur", "gradient"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.line_curve),
-            title = "Formas y esquinas",
-            keywords = listOf("thumbnail", "corner", "radius", "shape", "curve"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.palette),
-            title = stringResource(R.string.player_buttons_style),
-            keywords = listOf("player", "buttons", "style", "primary", "tertiary"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.sliders),
-            title = stringResource(R.string.player_slider_style),
-            keywords = listOf("player", "slider", "style", "squiggly", "slim"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.swipe),
-            title = stringResource(R.string.enable_swipe_thumbnail),
-            keywords = listOf("swipe", "thumbnail", "gesture"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.format_align_center),
-            title = stringResource(R.string.player_text_alignment),
-            keywords = listOf("player", "text", "alignment", "center", "sided"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.lyrics_text_position),
-            keywords = listOf("lyrics", "text", "position", "alignment"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.lyrics_click_change),
-            keywords = listOf("lyrics", "click", "change", "seek"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.nav_bar),
-            title = stringResource(R.string.default_open_tab),
-            keywords = listOf("default", "open", "tab", "home", "explore", "library"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.tab),
-            title = stringResource(R.string.default_lib_chips),
-            keywords = listOf("default", "library", "chips", "filter"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.nav_bar),
-            title = stringResource(R.string.slim_navbar),
-            keywords = listOf("slim", "navbar", "navigation", "bar"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.grid_view),
-            title = stringResource(R.string.grid_cell_size),
-            keywords = listOf("grid", "cell", "size", "large", "small"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        
-        // Player
-        SettingsItem(
-            icon = painterResource(R.drawable.graphic_eq),
-            title = stringResource(R.string.audio_quality),
-            keywords = listOf("audio", "quality", "high", "low", "auto"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.fast_forward),
-            title = stringResource(R.string.skip_silence),
-            keywords = listOf("skip", "silence", "audio"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.volume_up),
-            title = stringResource(R.string.audio_normalization),
-            keywords = listOf("audio", "normalization", "volume", "loudness"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.queue_music),
-            title = stringResource(R.string.persistent_queue),
-            keywords = listOf("persistent", "queue", "save", "restore"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.skip_next),
-            title = stringResource(R.string.auto_skip_next_on_error),
-            keywords = listOf("auto", "skip", "error", "next"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.clear_all),
-            title = stringResource(R.string.stop_music_on_task_clear),
-            keywords = listOf("stop", "music", "task", "clear", "kill"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        
-        // Content
-        SettingsItem(
-            icon = painterResource(R.drawable.language),
-            title = stringResource(R.string.content_language),
-            keywords = listOf("content", "language", "locale"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.location_on),
-            title = stringResource(R.string.content_country),
-            keywords = listOf("content", "country", "region"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.explicit),
-            title = stringResource(R.string.hide_explicit),
-            keywords = listOf("hide", "explicit", "content", "nsfw"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.wifi_proxy),
-            title = stringResource(R.string.enable_proxy),
-            keywords = listOf("proxy", "network", "connection"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_lrclib),
-            keywords = listOf("lrclib", "lyrics", "provider", "synced"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_kugou),
-            keywords = listOf("kugou", "lyrics", "provider"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.trending_up),
-            title = stringResource(R.string.top_length),
-            keywords = listOf("top", "length", "size", "playlist"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.home_outlined),
-            title = stringResource(R.string.set_quick_picks),
-            keywords = listOf("quick", "picks", "home", "last listened"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.history),
-            title = stringResource(R.string.history_duration),
-            keywords = listOf("history", "duration", "scrobble", "time"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-
-        // Storage
-        SettingsItem(
-            icon = painterResource(R.drawable.download),
-            title = stringResource(R.string.downloaded_songs),
-            keywords = listOf("downloaded", "songs", "storage", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/storage") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.music_note),
-            title = stringResource(R.string.song_cache),
-            keywords = listOf("song", "cache", "storage", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/storage") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.image),
-            title = stringResource(R.string.image_cache),
-            keywords = listOf("image", "cache", "storage", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/storage") }
-        ),
-
-        // Privacy
-        SettingsItem(
-            icon = painterResource(R.drawable.history),
-            title = stringResource(R.string.pause_listen_history),
-            keywords = listOf("pause", "listen", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.delete_history),
-            title = stringResource(R.string.clear_listen_history),
-            keywords = listOf("clear", "listen", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.search_off),
-            title = stringResource(R.string.pause_search_history),
-            keywords = listOf("pause", "search", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.clear_all),
-            title = stringResource(R.string.clear_search_history),
-            keywords = listOf("clear", "search", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.screenshot),
-            title = stringResource(R.string.disable_screenshot),
-            keywords = listOf("disable", "screenshot", "privacy", "secure"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-
-        // Backup & Restore
-        SettingsItem(
-            icon = painterResource(R.drawable.cloud_lock),
-            title = stringResource(R.string.cloud_upload_title),
-            keywords = listOf("cloud", "upload", "backup", "sync"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.backup),
-            title = stringResource(R.string.backup),
-            keywords = listOf("backup", "export", "data"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.restore),
-            title = stringResource(R.string.restore),
-            keywords = listOf("restore", "import", "data"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.replay),
-            title = stringResource(R.string.visitor_data_title),
-            keywords = listOf("visitor", "data", "reset", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-        ),
-        
-        // Discord
-        SettingsItem(
-            icon = painterResource(R.drawable.discord),
-            title = stringResource(R.string.enable_discord_rpc),
-            keywords = listOf("discord", "rpc", "rich presence", "status"),
-            onClick = { resetSearch(); navController.navigate("settings/discord") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.info),
-            title = stringResource(R.string.discord_use_details),
-            keywords = listOf("discord", "details", "status"),
-            onClick = { resetSearch(); navController.navigate("settings/discord") }
-        ),
-        
-        // General
-        SettingsItem(
-            icon = painterResource(R.drawable.link),
-            title = stringResource(R.string.open_supported_links),
-            keywords = listOf("open", "supported", "links", "default"),
-            onClick = {
-                resetSearch()
-                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                } else {
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                }
-                try {
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        )
-    )
-}
-
-// --- CORE LAYOUT ADAPTERS ---
-
-@Composable
-fun CompactSettingsLayout(
-    state: SettingsContentState,
-    listState: LazyListState,
-    quickActionColumns: Int,
-    heroVisible: Boolean,
-    bannerVisible: Boolean,
-    quickActionsVisible: Boolean,
-    integrationsVisible: Boolean,
-    categoriesVisible: Boolean,
-    topPadding: Dp,
-    modifier: Modifier = Modifier,
-) {
-    val pad = SettingsDimensions.ScreenHorizontalPadding
-    val spacing = SettingsDimensions.SectionSpacing
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
-                )
-            ),
-        contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
-    ) {
-        if (!state.isSearchActive) {
-            item(key = "hero") {
-                AnimatedVisibility(
-                    visible = heroVisible,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                        slideInVertically(
-                            initialOffsetY = { -it / 5 },
-                            animationSpec = SettingsAnimations.entranceSpring(),
-                        ),
-                ) {
-                    SettingsProfileHeader(
-                        state = state.profileHeader,
-                        onClick = state.onProfileHeaderClick,
-                        modifier = Modifier
-                            .padding(horizontal = pad)
-                            .padding(top = 4.dp, bottom = spacing),
-                    )
-                }
-            }
-
-            item(key = "permission") {
-                AnimatedVisibility(
-                    visible = bannerVisible && state.showPermissionBanner,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                        expandVertically(SettingsAnimations.entranceSpring()),
-                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                ) {
-                    SettingsPermissionBanner(
-                        onRequestPermission = state.onRequestPermission,
-                        modifier = Modifier
-                            .padding(horizontal = pad)
-                            .padding(bottom = spacing),
-                    )
-                }
-            }
-
-            item(key = "update") {
-                AnimatedVisibility(
-                    visible = bannerVisible && state.showUpdateBanner,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                        expandVertically(SettingsAnimations.entranceSpring()),
-                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                ) {
-                    SettingsUpdateBanner(
-                        latestVersion = state.latestVersion,
-                        onClick = state.onUpdateClick,
-                        modifier = Modifier
-                            .padding(horizontal = pad)
-                            .padding(bottom = spacing),
-                    )
-                }
-            }
-
-            item(key = "beta_update") {
-                AnimatedVisibility(
-                    visible = bannerVisible && state.showBetaUpdateBanner,
-                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                        expandVertically(SettingsAnimations.entranceSpring()),
-                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                ) {
-                    SettingsBetaUpdateBanner(
-                        latestVersion = state.latestBetaVersion,
-                        onClick = state.onBetaUpdateClick,
-                        modifier = Modifier
-                            .padding(horizontal = pad)
-                            .padding(bottom = spacing),
-                    )
-                }
-            }
-        }
-
-        if (state.isSearchActive && !state.hasSearchResults) {
-            item(key = "empty") {
-                Spacer(modifier = Modifier.height(24.dp).animateItem())
-                SettingsSearchEmpty(
-                    modifier = Modifier.padding(horizontal = pad).animateItem(),
-                )
-            }
-        } else {
-            if (state.quickActions.isNotEmpty()) {
-                item(key = "quickActions") {
-                    AnimatedVisibility(
-                        modifier = Modifier.animateItem(),
-                        visible = quickActionsVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            slideInVertically(
-                                initialOffsetY = { it / 6 },
-                                animationSpec = SettingsAnimations.entranceSpring(),
-                            ),
-                    ) {
-                        SettingsQuickActionsSection(
-                            actions = state.quickActions,
-                            columns = quickActionColumns,
-                            modifier = Modifier
-                                .padding(horizontal = pad)
-                                .padding(bottom = spacing),
-                        )
-                    }
-                }
-            }
-
-            if (state.integrations.isNotEmpty()) {
-                item(key = "integrations") {
-                    AnimatedVisibility(
-                        modifier = Modifier.animateItem(),
-                        visible = integrationsVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            slideInVertically(
-                                initialOffsetY = { it / 6 },
-                                animationSpec = SettingsAnimations.entranceSpring(),
-                            ),
-                    ) {
-                        SettingsIntegrationsSection(
-                            integrations = state.integrations,
-                            modifier = Modifier
-                                .padding(horizontal = pad)
-                                .padding(bottom = spacing),
-                        )
-                    }
-                }
-            }
-
-            if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
-                item(key = "internalSearchResults") {
-                    SettingsGroupCard(
-                        group = state.internalGroup,
-                        modifier = Modifier
-                            .padding(horizontal = pad)
-                            .padding(bottom = spacing)
-                            .animateItem(),
-                    )
-                }
-            }
-
-            items(
-                count = state.groups.size,
-                key = { state.groups[it].title },
-            ) { index ->
-                val group = state.groups[index]
-                AnimatedVisibility(
-                    modifier = Modifier.animateItem(),
-                    visible = categoriesVisible,
-                    enter = fadeIn(
-                        SettingsAnimations.staggerTween(index)
-                    ) + slideInVertically(
-                        initialOffsetY = { it / 5 },
-                        animationSpec = SettingsAnimations.staggerTween(index),
-                    ),
-                ) {
-                    SettingsGroupCard(
-                        group = group,
-                        modifier = Modifier
-                            .padding(horizontal = pad)
-                            .padding(bottom = spacing),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MediumSettingsLayout(
-    state: SettingsContentState,
-    quickActionColumns: Int,
-    heroVisible: Boolean,
-    bannerVisible: Boolean,
-    quickActionsVisible: Boolean,
-    integrationsVisible: Boolean,
-    categoriesVisible: Boolean,
-    topPadding: Dp,
-    modifier: Modifier = Modifier,
-) {
-    val pad = SettingsDimensions.ScreenHorizontalPadding
-    val spacing = SettingsDimensions.SectionSpacing
-
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
-                )
-            )
-            .padding(horizontal = pad),
-        horizontalArrangement = Arrangement.spacedBy(pad),
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .weight(SettingsDimensions.MediumPaneLeftWeight)
-                .fillMaxHeight(),
-            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
-        ) {
-            if (!state.isSearchActive) {
-                item(key = "hero") {
-                    AnimatedVisibility(
-                        visible = heroVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()),
-                    ) {
-                        SettingsProfileHeader(
-                            state = state.profileHeader,
-                            onClick = state.onProfileHeaderClick,
-                            modifier = Modifier.padding(top = 4.dp, bottom = spacing),
-                        )
-                    }
-                }
-
-                item(key = "permission") {
-                    AnimatedVisibility(
-                        visible = bannerVisible && state.showPermissionBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
-                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                    ) {
-                        SettingsPermissionBanner(
-                            onRequestPermission = state.onRequestPermission,
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-
-                item(key = "update") {
-                    AnimatedVisibility(
-                        visible = bannerVisible && state.showUpdateBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
-                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                    ) {
-                        SettingsUpdateBanner(
-                            latestVersion = state.latestVersion,
-                            onClick = state.onUpdateClick,
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-
-                item(key = "beta_update") {
-                    AnimatedVisibility(
-                        visible = bannerVisible && state.showBetaUpdateBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
-                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                    ) {
-                        SettingsBetaUpdateBanner(
-                            latestVersion = state.latestBetaVersion,
-                            onClick = state.onBetaUpdateClick,
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-            }
-
-            if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
-                if (state.quickActions.isNotEmpty()) {
-                    item(key = "quickActions") {
-                        AnimatedVisibility(
-                            modifier = Modifier.animateItem(),
-                            visible = quickActionsVisible,
-                            enter = fadeIn(SettingsAnimations.entranceSpring()),
-                        ) {
-                            SettingsQuickActionsSection(
-                                actions = state.quickActions,
-                                columns = 2,
-                                modifier = Modifier.padding(bottom = spacing),
-                            )
-                        }
-                    }
-                }
-
-                if (state.integrations.isNotEmpty()) {
-                    item(key = "integrations") {
-                        AnimatedVisibility(
-                            modifier = Modifier.animateItem(),
-                            visible = integrationsVisible,
-                            enter = fadeIn(SettingsAnimations.entranceSpring()),
-                        ) {
-                            SettingsIntegrationsSection(
-                                integrations = state.integrations,
-                                modifier = Modifier.padding(bottom = spacing),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(SettingsDimensions.MediumPaneRightWeight)
-                .fillMaxHeight(),
-            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
-        ) {
-            if (state.isSearchActive && !state.hasSearchResults) {
-                item(key = "empty") {
-                    Spacer(modifier = Modifier.height(24.dp).animateItem())
-                    SettingsSearchEmpty(modifier = Modifier.animateItem())
-                }
-            } else {
-                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
-                    item(key = "internalSearchResults") {
-                        SettingsGroupCard(
-                            group = state.internalGroup,
-                            modifier = Modifier.padding(bottom = spacing).animateItem(),
-                        )
-                    }
-                }
-
-                items(
-                    count = state.groups.size,
-                    key = { state.groups[it].title },
-                ) { index ->
-                    AnimatedVisibility(
-                        modifier = Modifier.animateItem(),
-                        visible = categoriesVisible,
-                        enter = fadeIn(
-                            SettingsAnimations.staggerTween(index)
-                        ) + slideInVertically(
-                            initialOffsetY = { it / 5 },
-                            animationSpec = SettingsAnimations.staggerTween(index),
-                        ),
-                    ) {
-                        SettingsGroupCard(
-                            group = state.groups[index],
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExpandedSettingsLayout(
-    state: SettingsContentState,
-    quickActionColumns: Int,
-    heroVisible: Boolean,
-    bannerVisible: Boolean,
-    quickActionsVisible: Boolean,
-    integrationsVisible: Boolean,
-    categoriesVisible: Boolean,
-    topPadding: Dp,
-    modifier: Modifier = Modifier,
-) {
-    val pad = SettingsDimensions.ScreenHorizontalPadding
-    val spacing = SettingsDimensions.SectionSpacing
-
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
-                )
-            )
-            .padding(horizontal = pad),
-        horizontalArrangement = Arrangement.spacedBy(pad),
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .width(SettingsDimensions.ExpandedListPaneWidth)
-                .fillMaxHeight(),
-            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
-        ) {
-            if (!state.isSearchActive) {
-                item(key = "hero") {
-                    AnimatedVisibility(
-                        visible = heroVisible,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()),
-                    ) {
-                        SettingsProfileHeader(
-                            state = state.profileHeader,
-                            onClick = state.onProfileHeaderClick,
-                            modifier = Modifier.padding(top = 4.dp, bottom = spacing),
-                        )
-                    }
-                }
-
-                item(key = "permission") {
-                    AnimatedVisibility(
-                        visible = bannerVisible && state.showPermissionBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
-                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                    ) {
-                        SettingsPermissionBanner(
-                            onRequestPermission = state.onRequestPermission,
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-
-                item(key = "update") {
-                    AnimatedVisibility(
-                        visible = bannerVisible && state.showUpdateBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
-                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                    ) {
-                        SettingsUpdateBanner(
-                            latestVersion = state.latestVersion,
-                            onClick = state.onUpdateClick,
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-
-                item(key = "beta_update") {
-                    AnimatedVisibility(
-                        visible = bannerVisible && state.showBetaUpdateBanner,
-                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
-                            expandVertically(SettingsAnimations.entranceSpring()),
-                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
-                    ) {
-                        SettingsBetaUpdateBanner(
-                            latestVersion = state.latestBetaVersion,
-                            onClick = state.onBetaUpdateClick,
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-            }
-
-            if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
-                if (state.quickActions.isNotEmpty()) {
-                    item(key = "quickActions") {
-                        AnimatedVisibility(
-                            modifier = Modifier.animateItem(),
-                            visible = quickActionsVisible,
-                            enter = fadeIn(SettingsAnimations.entranceSpring()),
-                        ) {
-                            SettingsQuickActionsSection(
-                                actions = state.quickActions,
-                                columns = 2,
-                                modifier = Modifier.padding(bottom = spacing),
-                            )
-                        }
-                    }
-                }
-
-                if (state.integrations.isNotEmpty()) {
-                    item(key = "integrations") {
-                        AnimatedVisibility(
-                            modifier = Modifier.animateItem(),
-                            visible = integrationsVisible,
-                            enter = fadeIn(SettingsAnimations.entranceSpring()),
-                        ) {
-                            SettingsIntegrationsSection(
-                                integrations = state.integrations,
-                                modifier = Modifier.padding(bottom = spacing),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
-        ) {
-            if (state.isSearchActive && !state.hasSearchResults) {
-                item(key = "empty") {
-                    Spacer(modifier = Modifier.height(24.dp).animateItem())
-                    SettingsSearchEmpty(modifier = Modifier.animateItem())
-                }
-            } else {
-                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
-                    item(key = "internalSearchResults") {
-                        SettingsGroupCard(
-                            group = state.internalGroup,
-                            modifier = Modifier.padding(bottom = spacing).animateItem(),
-                        )
-                    }
-                }
-
-                items(
-                    count = state.groups.size,
-                    key = { state.groups[it].title },
-                ) { index ->
-                    AnimatedVisibility(
-                        modifier = Modifier.animateItem(),
-                        visible = categoriesVisible,
-                        enter = fadeIn(
-                            SettingsAnimations.staggerTween(index)
-                        ) + slideInVertically(
-                            initialOffsetY = { it / 5 },
-                            animationSpec = SettingsAnimations.staggerTween(index),
-                        ),
-                    ) {
-                        SettingsGroupCard(
-                            group = state.groups[index],
-                            modifier = Modifier.padding(bottom = spacing),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// --- SUB-COMPONENTS FOR DRAWING CONTROLS ---
+// ==========================================
+// 5. PROFILE HEADER & SYSTEM COMPONENTS
+// ==========================================
 
 @Composable
 fun SettingsProfileHeader(
-    state: SettingsProfileState,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    isLoggedIn: Boolean,
+    accountName: String,
+    currentSelection: AvatarSelection,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val avatarManager = remember { AvatarPreferenceManager(context) }
-    val currentSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
-
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
-        label = "profileHeaderScale",
-    )
-    val title = if (state.isLoading) {
-        "Loading..."
-    } else if (state.isLoggedIn) {
-        state.accountName.ifBlank { stringResource(R.string.account) }
-    } else {
-        stringResource(R.string.login)
-    }
-
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            ),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(SettingsDimensions.HeroCardCornerRadius),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1760,10 +685,9 @@ fun SettingsProfileHeader(
                         ),
                     ),
                 )
-                .padding(horizontal = 20.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 22.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -1778,123 +702,105 @@ fun SettingsProfileHeader(
                                     MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f),
                                 ),
                             ),
-                        ),
+                        )
+                        .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (state.isLoading) {
-                        CircularWavyProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    } else if (currentSelection is AvatarSelection.Custom) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data((currentSelection as AvatarSelection.Custom).uri.toUri())
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else if (currentSelection is AvatarSelection.DiceBear) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data((currentSelection as AvatarSelection.DiceBear).url)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else if (state.isLoggedIn && !state.accountImageUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(state.accountImageUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        val initials = remember(state.accountName) {
-                            val cleanName = state.accountName.replace("@", "").trim()
-                            if (cleanName.isEmpty()) "?" else cleanName.take(2).uppercase()
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.tertiary
-                                        )
+                    if (isLoggedIn) {
+                        when (currentSelection) {
+                            is AvatarSelection.Custom -> {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data((currentSelection as AvatarSelection.Custom).uri.toUri())
+                                        .crossfade(true)
+                                        .error(R.drawable.person)
+                                        .placeholder(R.drawable.person)
+                                        .build(),
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            is AvatarSelection.DiceBear -> {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data((currentSelection as AvatarSelection.DiceBear).url)
+                                        .crossfade(true)
+                                        .error(R.drawable.person)
+                                        .placeholder(R.drawable.person)
+                                        .build(),
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            else -> {
+                                val initials = remember(accountName) {
+                                    val cleanName = accountName.replace("@", "").trim()
+                                    when {
+                                        cleanName.isEmpty() -> "?"
+                                        cleanName.contains(" ") -> {
+                                            val parts = cleanName.split(" ")
+                                            "${parts.first().firstOrNull()?.uppercase() ?: ""}${
+                                                parts.last().firstOrNull()?.uppercase() ?: ""
+                                            }"
+                                        }
+                                        else -> cleanName.take(2).uppercase()
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.primary,
+                                                    MaterialTheme.colorScheme.tertiary
+                                                )
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = initials,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
                                     )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = initials,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                                }
+                            }
                         }
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.opentune_monochrome),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(SettingsDimensions.HeroIconInnerSize),
+                        )
                     }
                 }
 
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = stringResource(R.string.account),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = title,
+                        text = if (isLoggedIn) accountName.replace("@", "").trim() else stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                     ) {
                         Text(
-                            text = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
+                            text = if (isLoggedIn) stringResource(R.string.account) else "v${BuildConfig.VERSION_NAME}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         )
                     }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrow_forward),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                    )
                 }
             }
         }
@@ -1950,7 +856,7 @@ fun SettingsPermissionBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Permisos necesarios",
+                    text = stringResource(R.string.permissions_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1958,7 +864,7 @@ fun SettingsPermissionBanner(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Concede los permisos para almacenar canciones e imágenes",
+                    text = stringResource(R.string.permissions_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -1970,14 +876,14 @@ fun SettingsPermissionBanner(
 
             Button(
                 onClick = onRequestPermission,
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                 ),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                shapes = ButtonDefaults.shapes(),
             ) {
                 Text(
-                    text = "Permitir",
+                    text = stringResource(R.string.allow),
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -2061,13 +967,13 @@ fun SettingsUpdateBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Nueva versión disponible",
+                    text = stringResource(R.string.new_version_available),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Versión $latestVersion",
+                    text = "v$latestVersion",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.tertiary,
                     fontWeight = FontWeight.Medium,
@@ -2085,112 +991,6 @@ fun SettingsUpdateBanner(
                     painter = painterResource(R.drawable.arrow_forward),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun SettingsBetaUpdateBanner(
-    latestVersion: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
-        label = "betaUpdateScale",
-    )
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            ),
-        shape = RoundedCornerShape(SettingsDimensions.BannerCardCornerRadius),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                            Color.Transparent,
-                        ),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                    ),
-                )
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(SettingsDimensions.BannerIconSize)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f),
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            ),
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.update),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(SettingsDimensions.BannerIconInnerSize),
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = "Nueva versión Beta disponible",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = "Versión Beta $latestVersion",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.arrow_forward),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -2240,7 +1040,7 @@ fun SettingsSearchEmpty(
             )
 
             Text(
-                text = stringResource(R.string.try_different_search_term),
+                text = "Search again with different keywords",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2253,7 +1053,7 @@ fun SettingsGroupCard(
     group: SettingsGroup,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.animateContentSize()) {
+    Column(modifier = modifier) {
         Text(
             text = group.title.uppercase(),
             style = MaterialTheme.typography.labelSmall,
@@ -2272,7 +1072,6 @@ fun SettingsGroupCard(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.animateContentSize()
         ) {
             Column {
                 group.items.forEachIndexed { index, item ->
@@ -2300,16 +1099,14 @@ fun SettingsRow(
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
+        targetValue = if (isPressed) 0.98f else 1f,
         animationSpec = SettingsAnimations.pressSpring(),
         label = "rowScale",
     )
-    
     val bgAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.08f else 0f,
-        animationSpec = if (LocalAnimationsDisabled.current) snap() else tween(150),
+        targetValue = if (isPressed) 0.06f else 0f,
+        animationSpec = SettingsAnimations.pressSpring(),
         label = "rowBgAlpha",
     )
 
@@ -2317,11 +1114,7 @@ fun SettingsRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .clip(RoundedCornerShape(12.dp))
+                .graphicsLayer { scaleX = scale; scaleY = scale }
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha))
                 .clickable(
                     interactionSource = interactionSource,
@@ -2410,7 +1203,7 @@ fun SettingsRow(
             Spacer(modifier = Modifier.width(4.dp))
 
             Icon(
-                painter = painterResource(R.drawable.arrow_forward),
+                painter = painterResource(R.drawable.navigate_next),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                 modifier = Modifier.size(SettingsDimensions.ChevronSize),
@@ -2426,6 +1219,528 @@ fun SettingsRow(
         }
     }
 }
+
+// ==========================================
+// 6. ADAPTIVE LAYOUTS
+// ==========================================
+
+@Composable
+private fun CompactSettingsLayout(
+    state: SettingsContentState,
+    listState: LazyListState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+    val context = LocalContext.current
+    val avatarManager = remember { AvatarPreferenceManager(context) }
+    val currentSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
+    val accountName by rememberPreference(AccountNameKey, "")
+    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            ),
+        contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+    ) {
+        item(key = "hero") {
+            AnimatedVisibility(
+                visible = heroVisible,
+                enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                    slideInVertically(
+                        initialOffsetY = { -it / 5 },
+                        animationSpec = SettingsAnimations.entranceSpring(),
+                    ),
+            ) {
+                SettingsProfileHeader(
+                    isLoggedIn = isLoggedIn,
+                    accountName = accountName,
+                    currentSelection = currentSelection,
+                    modifier = Modifier
+                        .padding(horizontal = pad)
+                        .padding(top = 4.dp, bottom = spacing),
+                )
+            }
+        }
+
+        if (!state.isSearchActive) {
+            item(key = "permission") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showPermissionBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+                ) {
+                    SettingsPermissionBanner(
+                        onRequestPermission = state.onRequestPermission,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
+            item(key = "update") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showUpdateBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+                ) {
+                    SettingsUpdateBanner(
+                        latestVersion = state.latestVersion,
+                        onClick = state.onUpdateClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+
+        if (state.quickActions.isNotEmpty()) {
+            item(key = "quickActions") {
+                AnimatedVisibility(
+                    visible = quickActionsVisible,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        slideInVertically(
+                            initialOffsetY = { it / 6 },
+                            animationSpec = SettingsAnimations.entranceSpring(),
+                        ),
+                ) {
+                    SettingsQuickActionsSection(
+                        actions = state.quickActions,
+                        columns = quickActionColumns,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+
+        if (state.integrations.isNotEmpty()) {
+            item(key = "integrations") {
+                AnimatedVisibility(
+                    visible = integrationsVisible,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        slideInVertically(
+                            initialOffsetY = { it / 6 },
+                            animationSpec = SettingsAnimations.entranceSpring(),
+                        ),
+                ) {
+                    SettingsIntegrationsSection(
+                        integrations = state.integrations,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+
+        if (state.isSearchActive && !state.hasSearchResults) {
+            item(key = "empty") {
+                Spacer(modifier = Modifier.height(24.dp))
+                SettingsSearchEmpty(
+                    modifier = Modifier.padding(horizontal = pad),
+                )
+            }
+        } else {
+            if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                item(key = "internalSearchResults") {
+                    SettingsGroupCard(
+                        group = state.internalGroup,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+
+            items(
+                count = state.groups.size,
+                key = { state.groups[it].title },
+            ) { index ->
+                val group = state.groups[index]
+                AnimatedVisibility(
+                    visible = categoriesVisible,
+                    enter = fadeIn(
+                        tween(
+                            SettingsAnimations.EntranceSlideDuration,
+                            delayMillis = index * SettingsAnimations.StaggerDelayPerItem,
+                        )
+                    ) + slideInVertically(
+                        initialOffsetY = { it / 5 },
+                        animationSpec = tween(
+                            SettingsAnimations.EntranceSlideDuration,
+                            delayMillis = index * SettingsAnimations.StaggerDelayPerItem,
+                        ),
+                    ),
+                ) {
+                    SettingsGroupCard(
+                        group = group,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediumSettingsLayout(
+    state: SettingsContentState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+    val context = LocalContext.current
+    val avatarManager = remember { AvatarPreferenceManager(context) }
+    val currentSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
+    val accountName by rememberPreference(AccountNameKey, "")
+    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            )
+            .padding(horizontal = pad),
+        horizontalArrangement = Arrangement.spacedBy(pad),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(SettingsDimensions.MediumPaneLeftWeight)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            item(key = "hero") {
+                AnimatedVisibility(
+                    visible = heroVisible,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()),
+                ) {
+                    SettingsProfileHeader(
+                        isLoggedIn = isLoggedIn,
+                        accountName = accountName,
+                        currentSelection = currentSelection,
+                        modifier = Modifier.padding(top = 4.dp, bottom = spacing),
+                    )
+                }
+            }
+
+            if (!state.isSearchActive) {
+                item(key = "permission") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showPermissionBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+                    ) {
+                        SettingsPermissionBanner(
+                            onRequestPermission = state.onRequestPermission,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+                    ) {
+                        SettingsUpdateBanner(
+                            latestVersion = state.latestVersion,
+                            onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.quickActions.isNotEmpty()) {
+                item(key = "quickActions") {
+                    AnimatedVisibility(
+                        visible = quickActionsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsQuickActionsSection(
+                            actions = state.quickActions,
+                            columns = 2,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.integrations.isNotEmpty()) {
+                item(key = "integrations") {
+                    AnimatedVisibility(
+                        visible = integrationsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsIntegrationsSection(
+                            integrations = state.integrations,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(SettingsDimensions.MediumPaneRightWeight)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (state.isSearchActive && !state.hasSearchResults) {
+                item(key = "empty") {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    SettingsSearchEmpty()
+                }
+            } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                items(
+                    count = state.groups.size,
+                    key = { state.groups[it].title },
+                ) { index ->
+                    AnimatedVisibility(
+                        visible = categoriesVisible,
+                        enter = fadeIn(
+                            tween(
+                                SettingsAnimations.EntranceSlideDuration,
+                                delayMillis = index * SettingsAnimations.StaggerDelayPerItem,
+                            )
+                        ) + slideInVertically(
+                            initialOffsetY = { it / 5 },
+                            animationSpec = tween(
+                                SettingsAnimations.EntranceSlideDuration,
+                                delayMillis = index * SettingsAnimations.StaggerDelayPerItem,
+                            ),
+                        ),
+                    ) {
+                        SettingsGroupCard(
+                            group = state.groups[index],
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedSettingsLayout(
+    state: SettingsContentState,
+    quickActionColumns: Int,
+    heroVisible: Boolean,
+    bannerVisible: Boolean,
+    quickActionsVisible: Boolean,
+    integrationsVisible: Boolean,
+    categoriesVisible: Boolean,
+    topPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val pad = SettingsDimensions.ScreenHorizontalPadding
+    val spacing = SettingsDimensions.SectionSpacing
+    val context = LocalContext.current
+    val avatarManager = remember { AvatarPreferenceManager(context) }
+    val currentSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
+    val accountName by rememberPreference(AccountNameKey, "")
+    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                )
+            )
+            .padding(horizontal = pad),
+        horizontalArrangement = Arrangement.spacedBy(pad),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .width(SettingsDimensions.ExpandedListPaneWidth)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            item(key = "hero") {
+                AnimatedVisibility(
+                    visible = heroVisible,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()),
+                ) {
+                    SettingsProfileHeader(
+                        isLoggedIn = isLoggedIn,
+                        accountName = accountName,
+                        currentSelection = currentSelection,
+                        modifier = Modifier.padding(top = 4.dp, bottom = spacing),
+                    )
+                }
+            }
+
+            if (!state.isSearchActive) {
+                item(key = "permission") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showPermissionBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+                    ) {
+                        SettingsPermissionBanner(
+                            onRequestPermission = state.onRequestPermission,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
+                    ) {
+                        SettingsUpdateBanner(
+                            latestVersion = state.latestVersion,
+                            onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.quickActions.isNotEmpty()) {
+                item(key = "quickActions") {
+                    AnimatedVisibility(
+                        visible = quickActionsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsQuickActionsSection(
+                            actions = state.quickActions,
+                            columns = 2,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+
+            if (state.integrations.isNotEmpty()) {
+                item(key = "integrations") {
+                    AnimatedVisibility(
+                        visible = integrationsVisible,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()),
+                    ) {
+                        SettingsIntegrationsSection(
+                            integrations = state.integrations,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(top = topPadding, bottom = 32.dp),
+        ) {
+            if (state.isSearchActive && !state.hasSearchResults) {
+                item(key = "empty") {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    SettingsSearchEmpty()
+                }
+            } else {
+                if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
+                    item(key = "internalSearchResults") {
+                        SettingsGroupCard(
+                            group = state.internalGroup,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                items(
+                    count = state.groups.size,
+                    key = { state.groups[it].title },
+                ) { index ->
+                    AnimatedVisibility(
+                        visible = categoriesVisible,
+                        enter = fadeIn(
+                            tween(
+                                SettingsAnimations.EntranceSlideDuration,
+                                delayMillis = index * SettingsAnimations.StaggerDelayPerItem,
+                            )
+                        ) + slideInVertically(
+                            initialOffsetY = { it / 5 },
+                            animationSpec = tween(
+                                SettingsAnimations.EntranceSlideDuration,
+                                delayMillis = index * SettingsAnimations.StaggerDelayPerItem,
+                            ),
+                        ),
+                    ) {
+                        SettingsGroupCard(
+                            group = state.groups[index],
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==========================================
+// 7. GRID & ROW CONTAINER CONTROLS
+// ==========================================
 
 @Composable
 fun SettingsQuickActionsSection(
@@ -2612,761 +1927,213 @@ fun IntegrationPill(
     }
 }
 
-// --- UPDATE DIALOG ---
+// ==========================================
+// 8. DATA BUILDERS & ROUTING MAPPING
+// ==========================================
 
 @Composable
-fun UpdateDownloadDialog(
-    latestVersion: String,
-    isBeta: Boolean = false,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    var downloadProgress by remember { mutableStateOf(0f) }
-    var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
-    var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
-    val downloadScope = rememberCoroutineScope()
-
-    val installPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (context.packageManager.canRequestPackageInstalls() && downloadedApkUri != null) {
-                installApk(context, downloadedApkUri!!)
-            }
-        }
-    }
-
-    Dialog(onDismissRequest = {
-        if (downloadStatus != DownloadStatus.DOWNLOADING) {
-            onDismiss()
-        }
-    }) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(28.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isBeta) "Nueva versión Beta $latestVersion disponible" else "Nueva versión $latestVersion disponible",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                when (downloadStatus) {
-                    DownloadStatus.NOT_STARTED -> {
-                        Text(if (isBeta) "¿Deseas descargar la última actualización Beta?" else "¿Deseas descargar la última actualización estable?")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(android.R.string.cancel))
-                            }
-                            Button(onClick = {
-                                downloadStatus = DownloadStatus.DOWNLOADING
-                                downloadScope.launch {
-                                    downloadedApkUri =
-                                        downloadApk(context, latestVersion) { progress ->
-                                            downloadProgress = progress
-                                        }
-                                    if (downloadedApkUri != null) {
-                                        downloadStatus = DownloadStatus.COMPLETED
-                                        downloadProgress = 1f
-                                    } else {
-                                        downloadStatus = DownloadStatus.ERROR
-                                    }
-                                }
-                            }) {
-                                Text(stringResource(R.string.download))
-                            }
-                        }
-                    }
-
-                    DownloadStatus.DOWNLOADING -> {
-                        Text("Descargando...")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        LinearProgressIndicator(
-                            progress = { downloadProgress },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            text = "${(downloadProgress * 100).toInt()}%",
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    DownloadStatus.COMPLETED -> {
-                        Text("Descarga completada")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(R.string.close))
-                            }
-                            Button(onClick = {
-                                if (downloadedApkUri != null) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        if (!context.packageManager.canRequestPackageInstalls()) {
-                                            val intent =
-                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                                                    .setData("package:${context.packageName}".toUri())
-
-                                            installPermissionLauncher.launch(intent)
-                                        } else {
-                                            installApk(context, downloadedApkUri!!)
-                                        }
-                                    } else {
-                                        installApk(context, downloadedApkUri!!)
-                                    }
-                                }
-                            }) {
-                                Text("Instalar")
-                            }
-                        }
-                    }
-
-                    DownloadStatus.ERROR -> {
-                        Text("Error al descargar")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onDismiss) {
-                            Text(stringResource(R.string.close))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-enum class DownloadStatus {
-    NOT_STARTED,
-    DOWNLOADING,
-    COMPLETED,
-    ERROR
-}
-
-suspend fun downloadApk(
-    context: Context,
-    version: String,
-    onProgressUpdate: (Float) -> Unit
-): Uri? = withContext(Dispatchers.IO) {
-    try {
-        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
-
-        val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        val apkFile = File(downloadDir, "app-release-$version.apk")
-
-        if (apkFile.exists()) {
-            apkFile.delete()
-        }
-
-        val client = OkHttpClient()
-        val request = Request.Builder().url(apkUrl).build()
-        val response = client.newCall(request).execute()
-
-        if (!response.isSuccessful) {
-            return@withContext null
-        }
-
-        val body = response.body ?: return@withContext null
-        val contentLength = body.contentLength()
-        val inputStream = body.byteStream()
-        val outputStream = FileOutputStream(apkFile)
-        val buffer = ByteArray(8 * 1024)
-        var totalBytesRead = 0L
-        var bytesRead: Int
-
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-            outputStream.write(buffer, 0, bytesRead)
-            totalBytesRead += bytesRead
-
-            if (contentLength > 0) {
-                val progress = totalBytesRead.toFloat() / contentLength.toFloat()
-                withContext(Dispatchers.Main) {
-                    onProgressUpdate(progress)
-                }
-            }
-        }
-        outputStream.flush()
-        outputStream.close()
-        inputStream.close()
-        
-        withContext(Dispatchers.Main) {
-            onProgressUpdate(1f)
-        }
-
-        return@withContext FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            apkFile
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-fun installApk(context: Context, apkUri: Uri) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val pm = context.packageManager
-        val isAllowed = pm.canRequestPackageInstalls()
-        if (!isAllowed) {
-            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                .setData("package:${context.packageName}".toUri())
-            context.startActivity(intent)
-            return
-        }
-    }
-
-    val installIntent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(apkUri, "application/vnd.android.package-archive")
-        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-    }
-
-    context.startActivity(installIntent)
-}
-
-suspend fun checkForUpdates(): String? = withContext(Dispatchers.IO) {
-    try {
-        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases/latest")
-        val connection = url.openConnection()
-        connection.connect()
-        val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonObject = JSONObject(json)
-        return@withContext jsonObject.getString("tag_name")
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
-    try {
-        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases")
-        val connection = url.openConnection()
-        connection.connect()
-        val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonArray = org.json.JSONArray(json)
-        for (i in 0 until jsonArray.length()) {
-            val release = jsonArray.getJSONObject(i)
-            if (release.getBoolean("prerelease")) {
-                return@withContext release.getString("tag_name")
-            }
-        }
-        return@withContext null
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
-    val cleanRemote = remoteVersion.removePrefix("v").substringBefore("-")
-    val cleanCurrent = currentVersion.removePrefix("v").substringBefore("-")
-    val remote = cleanRemote.split(".").map { it.toIntOrNull() ?: 0 }
-    val current = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
-
-    for (i in 0 until maxOf(remote.size, current.size)) {
-        val r = remote.getOrNull(i) ?: 0
-        val c = current.getOrNull(i) ?: 0
-        if (r > c) return true
-        if (r < c) return false
-    }
-
-    // Same base version, check tags
-    val remoteTag = remoteVersion.substringAfter("-", "")
-    val currentTag = currentVersion.substringAfter("-", "")
-
-    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true // Stable > Beta
-    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false // Beta < Stable
-    if (remoteTag.isNotEmpty() && currentTag.isNotEmpty()) {
-        return remoteTag > currentTag // E.g., beta02 > beta01
-    }
-
-    return false
-}
-
-// --- BUILDER IMPLEMENTATIONS ---
-
-@Composable
-private fun buildQuickActions(navController: NavController, resetSearch: () -> Unit): List<SettingsQuickAction> {
-    return listOf(
+fun buildQuickActions(
+    navController: NavController,
+    resetSearch: () -> Unit,
+): List<SettingsQuickAction> =
+    listOf(
         SettingsQuickAction(
             icon = painterResource(R.drawable.palette),
             label = stringResource(R.string.appearance),
             onClick = { resetSearch(); navController.navigate("settings/appearance") },
-            accentColor = MaterialTheme.colorScheme.primary
+            accentColor = MaterialTheme.colorScheme.primary,
         ),
         SettingsQuickAction(
             icon = painterResource(R.drawable.play),
             label = stringResource(R.string.player_and_audio),
             onClick = { resetSearch(); navController.navigate("settings/player") },
-            accentColor = MaterialTheme.colorScheme.secondary
-        ),
-        SettingsQuickAction(
-            icon = painterResource(R.drawable.language),
-            label = stringResource(R.string.content),
-            onClick = { resetSearch(); navController.navigate("settings/content") },
-            accentColor = MaterialTheme.colorScheme.tertiary
+            accentColor = MaterialTheme.colorScheme.tertiary,
         ),
         SettingsQuickAction(
             icon = painterResource(R.drawable.storage),
             label = stringResource(R.string.storage),
             onClick = { resetSearch(); navController.navigate("settings/storage") },
-            accentColor = MaterialTheme.colorScheme.onSurface
-        )
-    )
-}
-
-@Composable
-private fun buildIntegrationActions(
-    navController: NavController, 
-    resetSearch: () -> Unit
-): List<SettingsIntegrationAction> {
-    val uriHandler = LocalUriHandler.current
-    return listOf(
-        SettingsIntegrationAction(
-            icon = painterResource(R.drawable.discord),
-            label = stringResource(R.string.discord),
-            onClick = { resetSearch(); navController.navigate("settings/discord") },
-            accentColor = Color(0xFF5865F2)
+            accentColor = MaterialTheme.colorScheme.secondary,
         ),
-        SettingsIntegrationAction(
-            icon = painterResource(R.drawable.github),
-            label = stringResource(R.string.github),
-            onClick = { resetSearch(); uriHandler.openUri("https://github.com/Arturo254/OpenTune") },
-            accentColor = MaterialTheme.colorScheme.onSurface
-        )
+        SettingsQuickAction(
+            icon = painterResource(R.drawable.security),
+            label = stringResource(R.string.privacy),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") },
+            accentColor = MaterialTheme.colorScheme.error,
+        ),
     )
-}
 
 @Composable
-private fun buildSettingsGroups(
+fun buildIntegrationActions(
     navController: NavController,
     resetSearch: () -> Unit,
+): List<SettingsIntegrationAction> =
+    listOf(
+        SettingsIntegrationAction(
+            icon = painterResource(R.drawable.discord),
+            label = stringResource(R.string.discord_integration),
+            onClick = { resetSearch(); navController.navigate("settings/discord") },
+            accentColor = Color(0xFF5865F2),
+        )
+    )
+
+@Composable
+fun buildSettingsGroups(
+    navController: NavController,
+    isLoggedIn: Boolean,
+    accountEmail: String,
+    onTranslateClick: () -> Unit,
     onChangelogClick: () -> Unit,
-    hasUnreadNews: Boolean
-): List<SettingsGroup> {
-    val uriHandler = LocalUriHandler.current
-    val context = LocalContext.current
-    return listOf(
-        SettingsGroup(
-            title = stringResource(R.string.general_settings),
-            items = listOf(
-                SettingsItem(
-                    icon = painterResource(R.drawable.person),
-                    title = stringResource(R.string.account),
-                    keywords = listOf("account", "login", "profile"),
-                    onClick = { resetSearch(); navController.navigate("settings/account") }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.security),
-                    title = stringResource(R.string.privacy),
-                    keywords = listOf("privacy", "history", "security"),
-                    onClick = { resetSearch(); navController.navigate("settings/privacy") }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.restore),
-                    title = stringResource(R.string.backup_restore),
-                    keywords = listOf("backup", "restore", "data"),
-                    onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.link),
-                    title = stringResource(R.string.open_supported_links),
-                    keywords = listOf("open", "supported", "links", "default"),
-                    onClick = { 
-                        resetSearch()
-                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        } else {
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.info),
-                    title = stringResource(R.string.about),
-                    keywords = listOf("about", "info", "version"),
-                    onClick = { resetSearch(); navController.navigate("settings/about") }
-                )
-            )
-        ),
-        SettingsGroup(
-            title = stringResource(R.string.community),
-            items = listOf(
-                SettingsItem(
-                    icon = painterResource(R.drawable.schedule),
-                    title = stringResource(R.string.Changelog),
-                    keywords = listOf("changelog", "updates", "features"),
-                    onClick = { resetSearch(); onChangelogClick() }
-                ),
-                SettingsItem(
-                    icon = painterResource(R.drawable.telegram),
-                    title = stringResource(R.string.Telegramchanel),
-                    keywords = listOf("telegram", "community", "channel"),
-                    onClick = { resetSearch(); uriHandler.openUri("https://t.me/opentune_updates") }
+    onDonateClick: () -> Unit,
+    onTelegramClick: () -> Unit,
+    resetSearch: () -> Unit,
+): List<SettingsGroup> =
+    buildList {
+        add(
+            SettingsGroup(
+                title = stringResource(R.string.account),
+                items = listOf(
+                    SettingsItem(
+                        icon = painterResource(R.drawable.person),
+                        title = stringResource(R.string.account),
+                        subtitle = if (isLoggedIn && accountEmail.isNotBlank()) accountEmail else stringResource(R.string.not_logged_in),
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        keywords = listOf("google", "account", "login", "sync", "cuenta", "sesion"),
+                        onClick = { resetSearch(); navController.navigate("settings/account") }
+                    ),
+                    SettingsItem(
+                        icon = painterResource(R.drawable.language),
+                        title = stringResource(R.string.content),
+                        subtitle = stringResource(R.string.content_language),
+                        accentColor = MaterialTheme.colorScheme.secondary,
+                        keywords = listOf("language", "content", "country", "explicit", "idioma", "contenido", "pais"),
+                        onClick = { resetSearch(); navController.navigate("settings/content") }
+                    ),
+                    SettingsItem(
+                        icon = painterResource(R.drawable.restore),
+                        title = stringResource(R.string.backup_restore),
+                        subtitle = stringResource(R.string.action_backup),
+                        accentColor = MaterialTheme.colorScheme.tertiary,
+                        keywords = listOf("backup", "restore", "import", "export", "copia", "seguridad", "restauracion"),
+                        onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+                    )
                 )
             )
         )
-    )
-}
+
+        add(
+            SettingsGroup(
+                title = stringResource(R.string.app_info),
+                items = listOf(
+                    SettingsItem(
+                        icon = painterResource(R.drawable.info),
+                        title = stringResource(R.string.about),
+                        subtitle = "OpenTune",
+                        accentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        keywords = listOf("about", "version", "app", "info", "contributors", "colaboradores", "acerca de"),
+                        onClick = { resetSearch(); navController.navigate("settings/about") }
+                    ),
+                    SettingsItem(
+                        icon = painterResource(R.drawable.translate),
+                        title = stringResource(R.string.Translate),
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        keywords = listOf("translate", "traducir", "poeditor", "languages", "idioma"),
+                        onClick = { resetSearch(); onTranslateClick() }
+                    )
+                )
+            )
+        )
+
+        add(
+            SettingsGroup(
+                title = stringResource(R.string.community),
+                items = listOf(
+                    SettingsItem(
+                        icon = painterResource(R.drawable.schedule),
+                        title = stringResource(R.string.Changelog),
+                        accentColor = MaterialTheme.colorScheme.secondary,
+                        keywords = listOf("changelog", "release", "changes", "updates", "registro de cambios"),
+                        onClick = { resetSearch(); onChangelogClick() }
+                    ),
+                    SettingsItem(
+                        icon = painterResource(R.drawable.paypal),
+                        title = stringResource(R.string.Donate),
+                        accentColor = MaterialTheme.colorScheme.error,
+                        keywords = listOf("donate", "paypal", "support", "donar", "contribucion"),
+                        onClick = { resetSearch(); onDonateClick() }
+                    ),
+                    SettingsItem(
+                        icon = painterResource(R.drawable.telegram),
+                        title = stringResource(R.string.Telegramchanel),
+                        accentColor = Color(0xFF0088CC),
+                        keywords = listOf("telegram", "channel", "community", "updates", "canal"),
+                        onClick = { resetSearch(); onTelegramClick() }
+                    )
+                )
+            )
+        )
+    }
 
 @Composable
-private fun buildInternalItems(navController: NavController, resetSearch: () -> Unit): List<SettingsItem> {
-    val context = LocalContext.current
-    return listOf(
-        // Account
-        SettingsItem(
-            icon = painterResource(R.drawable.person),
-            title = stringResource(R.string.login),
-            keywords = listOf("account", "login", "google", "sign in"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.token),
-            title = stringResource(R.string.advanced_login),
-            keywords = listOf("advanced", "login", "token", "cookie"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.person),
-            title = stringResource(R.string.use_login_for_browse),
-            keywords = listOf("use", "login", "browse", "account"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.cached),
-            title = stringResource(R.string.ytm_sync),
-            keywords = listOf("youtube", "music", "sync", "ytm", "playlists"),
-            onClick = { resetSearch(); navController.navigate("settings/account") }
-        ),
-
-        // Appearance
+fun buildInternalItems(
+    navController: NavController,
+    resetSearch: () -> Unit,
+): List<SettingsItem> =
+    listOf(
         SettingsItem(
             icon = painterResource(R.drawable.palette),
-            title = stringResource(R.string.enable_dynamic_theme),
-            keywords = listOf("dynamic", "theme", "color", "material you"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+            title = stringResource(R.string.appearance),
+            subtitle = stringResource(R.string.dark_theme),
+            accentColor = MaterialTheme.colorScheme.primary,
+            keywords = listOf("theme", "palette", "material you", "dynamic color", "font", "ui"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") },
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.dark_mode),
-            title = stringResource(R.string.dark_theme),
-            keywords = listOf("dark", "light", "theme", "mode", "amoled"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+            icon = painterResource(R.drawable.play),
+            title = stringResource(R.string.player_and_audio),
+            subtitle = stringResource(R.string.audio_quality),
+            accentColor = MaterialTheme.colorScheme.tertiary,
+            keywords = listOf("audio", "playback", "volume", "quality", "equalizer", "crossfade"),
+            onClick = { resetSearch(); navController.navigate("settings/player") },
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.contrast),
-            title = stringResource(R.string.pure_black),
-            keywords = listOf("pitch", "black", "amoled", "oled", "dark"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+            icon = painterResource(R.drawable.storage),
+            title = stringResource(R.string.storage),
+            subtitle = stringResource(R.string.cache),
+            accentColor = MaterialTheme.colorScheme.secondary,
+            keywords = listOf("storage", "cache", "offline", "downloads", "cleanup"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") },
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.language),
-            title = stringResource(R.string.app_language),
-            keywords = listOf("app", "language", "locale", "translation"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.gradient),
-            title = stringResource(R.string.player_background_style),
-            keywords = listOf("player", "background", "style", "blur", "gradient"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.line_curve),
-            title = "Formas y esquinas",
-            keywords = listOf("thumbnail", "corner", "radius", "shape", "curve"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.palette),
-            title = stringResource(R.string.player_buttons_style),
-            keywords = listOf("player", "buttons", "style", "primary", "tertiary"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.sliders),
-            title = stringResource(R.string.player_slider_style),
-            keywords = listOf("player", "slider", "style", "squiggly", "slim"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.swipe),
-            title = stringResource(R.string.enable_swipe_thumbnail),
-            keywords = listOf("swipe", "thumbnail", "gesture"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.format_align_center),
-            title = stringResource(R.string.player_text_alignment),
-            keywords = listOf("player", "text", "alignment", "center", "sided"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.lyrics_text_position),
-            keywords = listOf("lyrics", "text", "position", "alignment"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.lyrics_click_change),
-            keywords = listOf("lyrics", "click", "change", "seek"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.nav_bar),
-            title = stringResource(R.string.default_open_tab),
-            keywords = listOf("default", "open", "tab", "home", "explore", "library"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.tab),
-            title = stringResource(R.string.default_lib_chips),
-            keywords = listOf("default", "library", "chips", "filter"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.nav_bar),
-            title = stringResource(R.string.slim_navbar),
-            keywords = listOf("slim", "navbar", "navigation", "bar"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.grid_view),
-            title = stringResource(R.string.grid_cell_size),
-            keywords = listOf("grid", "cell", "size", "large", "small"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        
-        // Player
-        SettingsItem(
-            icon = painterResource(R.drawable.graphic_eq),
-            title = stringResource(R.string.audio_quality),
-            keywords = listOf("audio", "quality", "high", "low", "auto"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.fast_forward),
-            title = stringResource(R.string.skip_silence),
-            keywords = listOf("skip", "silence", "audio"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.volume_up),
-            title = stringResource(R.string.audio_normalization),
-            keywords = listOf("audio", "normalization", "volume", "loudness"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.queue_music),
-            title = stringResource(R.string.persistent_queue),
-            keywords = listOf("persistent", "queue", "save", "restore"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.skip_next),
-            title = stringResource(R.string.auto_skip_next_on_error),
-            keywords = listOf("auto", "skip", "error", "next"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.clear_all),
-            title = stringResource(R.string.stop_music_on_task_clear),
-            keywords = listOf("stop", "music", "task", "clear", "kill"),
-            onClick = { resetSearch(); navController.navigate("settings/player") }
-        ),
-        
-        // Content
-        SettingsItem(
-            icon = painterResource(R.drawable.language),
-            title = stringResource(R.string.content_language),
-            keywords = listOf("content", "language", "locale"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.location_on),
-            title = stringResource(R.string.content_country),
-            keywords = listOf("content", "country", "region"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.explicit),
-            title = stringResource(R.string.hide_explicit),
-            keywords = listOf("hide", "explicit", "content", "nsfw"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.wifi_proxy),
-            title = stringResource(R.string.enable_proxy),
-            keywords = listOf("proxy", "network", "connection"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_lrclib),
-            keywords = listOf("lrclib", "lyrics", "provider", "synced"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.lyrics),
-            title = stringResource(R.string.enable_kugou),
-            keywords = listOf("kugou", "lyrics", "provider"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.trending_up),
-            title = stringResource(R.string.top_length),
-            keywords = listOf("top", "length", "size", "playlist"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.home_outlined),
-            title = stringResource(R.string.set_quick_picks),
-            keywords = listOf("quick", "picks", "home", "last listened"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.history),
-            title = stringResource(R.string.history_duration),
-            keywords = listOf("history", "duration", "scrobble", "time"),
-            onClick = { resetSearch(); navController.navigate("settings/content") }
-        ),
-
-        // Storage
-        SettingsItem(
-            icon = painterResource(R.drawable.download),
-            title = stringResource(R.string.downloaded_songs),
-            keywords = listOf("downloaded", "songs", "storage", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/storage") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.music_note),
-            title = stringResource(R.string.song_cache),
-            keywords = listOf("song", "cache", "storage", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/storage") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.image),
-            title = stringResource(R.string.image_cache),
-            keywords = listOf("image", "cache", "storage", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/storage") }
-        ),
-
-        // Privacy
-        SettingsItem(
-            icon = painterResource(R.drawable.history),
-            title = stringResource(R.string.pause_listen_history),
-            keywords = listOf("pause", "listen", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.delete_history),
-            title = stringResource(R.string.clear_listen_history),
-            keywords = listOf("clear", "listen", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.search_off),
-            title = stringResource(R.string.pause_search_history),
-            keywords = listOf("pause", "search", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.clear_all),
-            title = stringResource(R.string.clear_search_history),
-            keywords = listOf("clear", "search", "history", "privacy"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.screenshot),
-            title = stringResource(R.string.disable_screenshot),
-            keywords = listOf("disable", "screenshot", "privacy", "secure"),
-            onClick = { resetSearch(); navController.navigate("settings/privacy") }
-        ),
-
-        // Backup & Restore
-        SettingsItem(
-            icon = painterResource(R.drawable.cloud_lock),
-            title = stringResource(R.string.cloud_upload_title),
-            keywords = listOf("cloud", "upload", "backup", "sync"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.backup),
-            title = stringResource(R.string.backup),
-            keywords = listOf("backup", "export", "data"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+            icon = painterResource(R.drawable.security),
+            title = stringResource(R.string.privacy),
+            subtitle = stringResource(R.string.pause_listen_history),
+            accentColor = MaterialTheme.colorScheme.error,
+            keywords = listOf("privacy", "history", "tracking", "security", "permissions"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") },
         ),
         SettingsItem(
             icon = painterResource(R.drawable.restore),
-            title = stringResource(R.string.restore),
-            keywords = listOf("restore", "import", "data"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+            title = stringResource(R.string.backup_restore),
+            subtitle = stringResource(R.string.action_backup),
+            accentColor = MaterialTheme.colorScheme.tertiary,
+            keywords = listOf("backup", "restore", "import", "export", "migration"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") },
         ),
-        SettingsItem(
-            icon = painterResource(R.drawable.replay),
-            title = stringResource(R.string.visitor_data_title),
-            keywords = listOf("visitor", "data", "reset", "clear"),
-            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
-        ),
-        
-        // Discord
         SettingsItem(
             icon = painterResource(R.drawable.discord),
-            title = stringResource(R.string.enable_discord_rpc),
-            keywords = listOf("discord", "rpc", "rich presence", "status"),
-            onClick = { resetSearch(); navController.navigate("settings/discord") }
+            title = stringResource(R.string.discord_integration),
+            subtitle = stringResource(R.string.integration),
+            accentColor = Color(0xFF5865F2),
+            keywords = listOf("discord", "rpc", "rich presence", "status", "activity"),
+            onClick = { resetSearch(); navController.navigate("settings/discord") },
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.info),
-            title = stringResource(R.string.discord_use_details),
-            keywords = listOf("discord", "details", "status"),
-            onClick = { resetSearch(); navController.navigate("settings/discord") }
-        ),
-        
-        // General
-        SettingsItem(
-            icon = painterResource(R.drawable.link),
-            title = stringResource(R.string.open_supported_links),
-            keywords = listOf("open", "supported", "links", "default"),
-            onClick = {
-                resetSearch()
-                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                } else {
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                }
-                try {
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            icon = painterResource(R.drawable.security),
+            title = stringResource(R.string.advanced_login),
+            subtitle = stringResource(R.string.discord),
+            accentColor = Color(0xFF5865F2),
+            keywords = listOf("token", "login", "authentication", "discord login"),
+            onClick = { resetSearch(); navController.navigate("settings/discord/login") },
         )
     )
-}
