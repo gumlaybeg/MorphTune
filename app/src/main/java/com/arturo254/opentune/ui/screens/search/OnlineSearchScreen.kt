@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,7 @@ import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.R
 import com.arturo254.opentune.db.entities.SearchHistory
 import com.arturo254.opentune.viewmodels.OnlineSearchSuggestionViewModel
+import com.arturo254.opentune.viewmodels.SearchSuggestionViewState
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +93,10 @@ fun OnlineSearchScreen(
 
     val backgroundColor = MaterialTheme.colorScheme.background
 
+    // Se extraen de forma segura para evitar problemas de resolución de referencias dentro del LazyColumn
+    val historyList = viewState.history
+    val suggestionsList = viewState.suggestions
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -111,7 +117,7 @@ fun OnlineSearchScreen(
                 .widthIn(max = SearchContentMaxWidth)
                 .fillMaxSize(),
         ) {
-            if (viewState.history.isNotEmpty()) {
+            if (historyList.isNotEmpty()) {
                 item(
                     key = "history_header",
                     contentType = "section_header",
@@ -123,12 +129,12 @@ fun OnlineSearchScreen(
                 }
 
                 itemsIndexed(
-                    items = viewState.history,
+                    items = historyList,
                     key = { _, history -> "history_${history.query}" },
                     contentType = { _, _ -> "history" },
                 ) { index, history ->
-                    val itemShape = remember(index, viewState.history.size) {
-                        segmentedSearchItemShape(index, viewState.history.size)
+                    val itemShape = remember(index, historyList.size) {
+                        segmentedSearchItemShape(index, historyList.size)
                     }
                     SuggestionItem(
                         query = history.query,
@@ -151,7 +157,7 @@ fun OnlineSearchScreen(
                 }
             }
 
-            if (viewState.suggestions.isNotEmpty()) {
+            if (suggestionsList.isNotEmpty()) {
                 item(
                     key = "suggestions_header",
                     contentType = "section_header",
@@ -163,12 +169,12 @@ fun OnlineSearchScreen(
                 }
 
                 itemsIndexed(
-                    items = viewState.suggestions,
+                    items = suggestionsList,
                     key = { _, suggestion -> "suggestion_$suggestion" },
                     contentType = { _, _ -> "suggestion" },
                 ) { index, suggestion ->
-                    val itemShape = remember(index, viewState.suggestions.size) {
-                        segmentedSearchItemShape(index, viewState.suggestions.size)
+                    val itemShape = remember(index, suggestionsList.size) {
+                        segmentedSearchItemShape(index, suggestionsList.size)
                     }
                     SuggestionItem(
                         query = suggestion,
