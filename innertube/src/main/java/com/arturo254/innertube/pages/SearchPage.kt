@@ -27,6 +27,10 @@ object SearchPage {
                 ?.runs
                 ?.splitBySeparator()
                 ?: return null
+                
+        val watchEndpoint = renderer.navigationEndpoint?.watchEndpoint 
+            ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint
+
         return when {
             renderer.isSong -> {
                 SongItem(
@@ -64,6 +68,7 @@ object SearchPage {
                         renderer.badges?.find {
                             it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                         } != null,
+                    musicVideoType = watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
                 )
             }
             renderer.isArtist -> {
@@ -88,8 +93,8 @@ object SearchPage {
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
                     radioEndpoint =
-                        renderer.menu.menuRenderer.items
-                            .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                        renderer.menu?.menuRenderer?.items
+                            ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
@@ -182,8 +187,8 @@ object SearchPage {
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
                     radioEndpoint =
-                        renderer.menu.menuRenderer.items
-                            .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                        renderer.menu?.menuRenderer?.items
+                            ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
