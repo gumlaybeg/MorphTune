@@ -36,6 +36,9 @@ data class SongItem(
 ) : YTItem() {
     override val shareLink: String
         get() = "https://music.youtube.com/watch?v=$id"
+
+    val isVideoSong: Boolean
+        get() = musicVideoType == "MUSIC_VIDEO_TYPE_OMV" || musicVideoType == "MUSIC_VIDEO_TYPE_UGC"
 }
 
 data class AlbumItem(
