@@ -989,7 +989,7 @@ fun AlbumGridItem(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                            color = Color.Black.copy(alpha = 0.4f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -1458,7 +1458,7 @@ fun YouTubeListItem(
         when (item) {
             is SongItem -> joinByBullet(
                 item.artists.joinToString { it.name },
-                item.views,
+                item.views, // Added views
                 item.duration?.let { makeTimeString(it * 1000L) }
             )
 
