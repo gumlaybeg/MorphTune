@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -49,6 +50,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -67,9 +69,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -81,6 +87,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.os.ConfigurationCompat
@@ -92,6 +99,35 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import timber.log.Timber
+
+// Composable function & modifier to prevent sheet snap back
+@Composable
+fun rememberNoSnapBackNestedScrollConnection(): NestedScrollConnection {
+    return remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return available
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity
+            ): Velocity {
+                return available
+            }
+        }
+    }
+}
+
+@Composable
+fun Modifier.preventSheetSnapBack(): Modifier {
+    val connection = rememberNoSnapBackNestedScrollConnection()
+    return this.nestedScroll(connection)
+}
 
 // Data class model for representing a language
 data class LanguageItem(
@@ -451,18 +487,18 @@ fun LanguageSelector(
 
     val currentLanguage by localeManager.currentLanguage.collectAsState()
     val changeState by localeManager.changeState.collectAsState()
-    val availableLanguages by remember { derivedStateOf { localeManager.getAvailableLanguages() } }
+    val availableLanguages: List<LanguageItem> = remember { localeManager.getAvailableLanguages() }
 
     var selectedLanguageCode by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
 
-    val filteredLanguages = remember(availableLanguages, searchQuery) {
+    val filteredLanguages: List<LanguageItem> = remember(availableLanguages, searchQuery) {
         if (searchQuery.isBlank()) {
             availableLanguages
         } else {
-            availableLanguages.filter { language ->
+            availableLanguages.filter { language: LanguageItem ->
                 language.displayName.contains(searchQuery, ignoreCase = true) ||
                         language.nativeName.contains(searchQuery, ignoreCase = true) ||
                         language.code.contains(searchQuery, ignoreCase = true)
@@ -555,12 +591,12 @@ fun LanguageSelector(
                 ) {
                     items(
                         items = filteredLanguages,
-                        key = { it.code }
+                        key = { languageItem -> languageItem.code }
                     ) { language ->
                         val isSelected = language.code == currentLanguage
                         val isEnabled = changeState !is LanguageChangeState.Changing
 
-                        LanguageItem(
+                        LanguageItemRow(
                             language = language,
                             isSelected = isSelected,
                             isEnabled = isEnabled,
@@ -724,7 +760,7 @@ private fun EmptySearchResult(
 }
 
 @Composable
-private fun LanguageItem(
+private fun LanguageItemRow(
     language: LanguageItem,
     isSelected: Boolean,
     isEnabled: Boolean,
