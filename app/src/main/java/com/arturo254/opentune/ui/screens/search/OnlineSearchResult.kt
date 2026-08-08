@@ -3,22 +3,35 @@ package com.arturo254.opentune.ui.screens.search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -27,37 +40,41 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
-import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
-import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
-import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
-import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
-import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
-import com.arturo254.innertube.models.AlbumItem
-import com.arturo254.innertube.models.ArtistItem
-import com.arturo254.innertube.models.PlaylistItem
-import com.arturo254.innertube.models.SongItem
-import com.arturo254.innertube.models.WatchEndpoint
-import com.arturo254.innertube.models.YTItem
+import kotlinx.coroutines.launch
 import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AppBarHeight
-import com.arturo254.opentune.constants.SearchFilterHeight
 import com.arturo254.opentune.extensions.togglePlayPause
+import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
+import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
+import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
+import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
+import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
+import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
+import com.arturo254.opentune.innertube.models.AlbumItem
+import com.arturo254.opentune.innertube.models.ArtistItem
+import com.arturo254.opentune.innertube.models.PlaylistItem
+import com.arturo254.opentune.innertube.models.SongItem
+import com.arturo254.opentune.innertube.models.WatchEndpoint
+import com.arturo254.opentune.innertube.models.YTItem
+import com.arturo254.opentune.innertube.pages.SearchSummary
 import com.arturo254.opentune.models.toMediaMetadata
 import com.arturo254.opentune.playback.queues.YouTubeQueue
 import com.arturo254.opentune.ui.component.ChipsRow
 import com.arturo254.opentune.ui.component.EmptyPlaceholder
 import com.arturo254.opentune.ui.component.LocalMenuState
-import com.arturo254.opentune.ui.component.NavigationTitle
 import com.arturo254.opentune.ui.component.YouTubeListItem
 import com.arturo254.opentune.ui.component.shimmer.ListItemPlaceHolder
 import com.arturo254.opentune.ui.component.shimmer.ShimmerHost
@@ -66,7 +83,6 @@ import com.arturo254.opentune.ui.menu.YouTubeArtistMenu
 import com.arturo254.opentune.ui.menu.YouTubePlaylistMenu
 import com.arturo254.opentune.ui.menu.YouTubeSongMenu
 import com.arturo254.opentune.viewmodels.OnlineSearchViewModel
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +108,40 @@ fun OnlineSearchResult(
             }
         }
     }
+    val allModeSections =
+        buildList<SearchSummary> {
+            searchSummary
+                ?.summaries
+                ?.firstOrNull()
+                ?.takeIf { it.items.isNotEmpty() }
+                ?.let(::add)
+
+            listOf(
+                FILTER_SONG to stringResource(R.string.filter_songs),
+                FILTER_VIDEO to stringResource(R.string.filter_videos),
+                FILTER_ALBUM to stringResource(R.string.filter_albums),
+                FILTER_ARTIST to stringResource(R.string.filter_artists),
+                FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
+                FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
+            ).forEach { (sectionFilter, sectionTitle) ->
+                viewModel.viewStateMap[sectionFilter.value]
+                    ?.items
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { items ->
+                        add(SearchSummary(title = sectionTitle, items = items))
+                    }
+            }
+        }
+    val isAllModeLoaded =
+        searchSummary != null ||
+            listOf(
+                FILTER_SONG,
+                FILTER_VIDEO,
+                FILTER_ALBUM,
+                FILTER_ARTIST,
+                FILTER_COMMUNITY_PLAYLIST,
+                FILTER_FEATURED_PLAYLIST,
+            ).all { viewModel.viewStateMap.containsKey(it.value) }
 
     LaunchedEffect(lazyListState) {
         snapshotFlow {
@@ -167,8 +217,8 @@ fun OnlineSearchResult(
                                         playerConnection.playQueue(
                                             YouTubeQueue(
                                                 WatchEndpoint(videoId = item.id),
-                                                item.toMediaMetadata()
-                                            )
+                                                item.toMediaMetadata(),
+                                            ),
                                         )
                                     }
                                 }
@@ -184,101 +234,151 @@ fun OnlineSearchResult(
         )
     }
 
-    LazyColumn(
-        state = lazyListState,
-        contentPadding =
-            LocalPlayerAwareWindowInsets.current
-                .add(WindowInsets(top = SearchFilterHeight))
-                .add(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                .asPaddingValues(),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
     ) {
-        if (searchFilter == null) {
-            searchSummary?.summaries?.forEach { summary ->
-                item {
-                    NavigationTitle(summary.title)
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            shadowElevation = 1.dp,
+            modifier = Modifier
+                .windowInsetsPadding(
+                    WindowInsets.systemBars
+                        .only(WindowInsetsSides.Top)
+                        .add(WindowInsets(top = AppBarHeight))
+                )
+                .fillMaxWidth(),
+        ) {
+            ChipsRow(
+                chips = listOf(
+                    null to stringResource(R.string.filter_all),
+                    FILTER_SONG to stringResource(R.string.filter_songs),
+                    FILTER_VIDEO to stringResource(R.string.filter_videos),
+                    FILTER_ALBUM to stringResource(R.string.filter_albums),
+                    FILTER_ARTIST to stringResource(R.string.filter_artists),
+                    FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
+                    FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
+                ),
+                currentValue = searchFilter,
+                onValueUpdate = {
+                    if (viewModel.filter.value != it) {
+                        viewModel.filter.value = it
+                    }
+                    coroutineScope.launch {
+                        lazyListState.animateScrollToItem(0)
+                    }
+                },
+            )
+        }
+
+        LazyColumn(
+            state = lazyListState,
+            contentPadding = LocalPlayerAwareWindowInsets.current
+                .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+                .add(WindowInsets(top = 8.dp))
+                .asPaddingValues(),
+            modifier = Modifier.weight(1f),
+        ) {
+            if (searchFilter == null) {
+                allModeSections.forEachIndexed { index, summary ->
+                    if (index > 0) {
+                        item(key = "divider_$index", contentType = "divider") {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                            )
+                        }
+                    }
+
+                    item(
+                        key = "section_header_${summary.title}_$index",
+                        contentType = "section_header",
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(18.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = summary.title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+
+                    itemsIndexed(
+                        items = summary.items,
+                        key = { itemIndex, item -> "${summary.title}/${item.id}/$itemIndex" },
+                        contentType = { _, _ -> "search_result" },
+                    ) { _, item ->
+                        ytItemContent(item)
+                    }
+
+                    item(
+                        key = "section_spacer_${summary.title}_$index",
+                        contentType = "section_spacer",
+                    ) {
+                        Spacer(Modifier.height(4.dp))
+                    }
                 }
 
+                if (allModeSections.isEmpty() && isAllModeLoaded) {
+                    item(key = "empty_all", contentType = "empty") {
+                        EmptyPlaceholder(
+                            icon = R.drawable.search,
+                            text = stringResource(R.string.no_results_found),
+                        )
+                    }
+                }
+            } else {
                 items(
-                    items = summary.items,
-                    key = { "${summary.title}/${it.id}" },
+                    items = itemsPage?.items.orEmpty().distinctBy { it.id },
+                    key = { "filtered_${it.id}" },
+                    contentType = { "search_result" },
                     itemContent = ytItemContent,
                 )
-            }
 
-            if (searchSummary?.summaries?.isEmpty() == true) {
-                item {
-                    EmptyPlaceholder(
-                        icon = R.drawable.search,
-                        text = stringResource(R.string.no_results_found),
-                    )
+                if (itemsPage?.continuation != null) {
+                    item(key = "loading", contentType = "loading") {
+                        ShimmerHost {
+                            repeat(3) {
+                                ListItemPlaceHolder()
+                            }
+                        }
+                    }
+                }
+
+                if (itemsPage?.items?.isEmpty() == true) {
+                    item(key = "empty_filtered", contentType = "empty") {
+                        EmptyPlaceholder(
+                            icon = R.drawable.search,
+                            text = stringResource(R.string.no_results_found),
+                        )
+                    }
                 }
             }
-        } else {
-            items(
-                items = itemsPage?.items.orEmpty().distinctBy { it.id },
-                key = { it.id },
-                itemContent = ytItemContent,
-            )
 
-            if (itemsPage?.continuation != null) {
-                item(key = "loading") {
+            if ((searchFilter == null && allModeSections.isEmpty() && !isAllModeLoaded) || (searchFilter != null && itemsPage == null)) {
+                item(key = "initial_loading", contentType = "loading") {
                     ShimmerHost {
-                        repeat(3) {
+                        repeat(8) {
                             ListItemPlaceHolder()
                         }
                     }
                 }
             }
-
-            if (itemsPage?.items?.isEmpty() == true) {
-                item {
-                    EmptyPlaceholder(
-                        icon = R.drawable.search,
-                        text = stringResource(R.string.no_results_found),
-                    )
-                }
-            }
-        }
-
-        if (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null) {
-            item {
-                ShimmerHost {
-                    repeat(8) {
-                        ListItemPlaceHolder()
-                    }
-                }
-            }
         }
     }
-
-    ChipsRow(
-        chips =
-            listOf(
-                null to stringResource(R.string.filter_all),
-                FILTER_SONG to stringResource(R.string.filter_songs),
-                FILTER_VIDEO to stringResource(R.string.filter_videos),
-                FILTER_ALBUM to stringResource(R.string.filter_albums),
-                FILTER_ARTIST to stringResource(R.string.filter_artists),
-                FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
-                FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
-            ),
-        currentValue = searchFilter,
-        onValueUpdate = {
-            if (viewModel.filter.value != it) {
-                viewModel.filter.value = it
-            }
-            coroutineScope.launch {
-                lazyListState.animateScrollToItem(0)
-            }
-        },
-        modifier =
-            Modifier
-                .background(MaterialTheme.colorScheme.surface)
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing
-                        .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
-                        .add(WindowInsets(top = AppBarHeight))
-                )
-                .fillMaxWidth()
-    )
 }
