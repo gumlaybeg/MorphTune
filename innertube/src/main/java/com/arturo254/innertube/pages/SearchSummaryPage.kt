@@ -1,5 +1,6 @@
 package com.arturo254.innertube.pages
 
+import com.arturo254.innertube.YouTubeConstants
 import com.arturo254.innertube.models.Album
 import com.arturo254.innertube.models.AlbumItem
 import com.arturo254.innertube.models.Artist
@@ -12,8 +13,8 @@ import com.arturo254.innertube.models.MusicResponsiveListItemRenderer
 import com.arturo254.innertube.models.PlaylistItem
 import com.arturo254.innertube.models.SongItem
 import com.arturo254.innertube.models.YTItem
-import com.arturo254.innertube.models.clean
 import com.arturo254.innertube.models.filterExplicit
+import com.arturo254.innertube.models.getItems
 import com.arturo254.innertube.models.oddElements
 import com.arturo254.innertube.models.splitBySeparator
 import com.arturo254.innertube.utils.parseTime
@@ -45,40 +46,52 @@ data class SearchSummaryPage(
 
     companion object {
         fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): YTItem? {
-            val subtitle = renderer.subtitle.runs?.splitBySeparator()
-            val listRun = subtitle?.clean() ?: return null
+            val subtitle = renderer.subtitle.runs?.splitBySeparator() ?: emptyList()
             
             var album: Album? = null
             val artists = mutableListOf<Artist>()
             var views: String? = null
             var duration: Int? = null
             
-            listRun.forEach { runs ->
-                val text = runs.joinToString("") { it.text }
+            subtitle.forEach { runs ->
+                val text = runs.joinToString("") { it.text }.trim()
+                if (text.isEmpty()) return@forEach
+
                 var hasEndpoint = false
                 runs.forEach { run ->
                     val pageType = run.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
-                    if (pageType == MUSIC_PAGE_TYPE_ALBUM) {
+                    if (pageType == MUSIC_PAGE_TYPE_ALBUM || pageType == "MUSIC_PAGE_TYPE_ALBUM") {
                         album = Album(name = run.text, id = run.navigationEndpoint.browseEndpoint.browseId!!)
                         hasEndpoint = true
-                    } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL) {
+                    } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == "MUSIC_PAGE_TYPE_ARTIST" || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL || pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL") {
                         artists.add(Artist(name = run.text, id = run.navigationEndpoint.browseEndpoint.browseId!!))
                         hasEndpoint = true
                     }
                 }
+
                 if (!hasEndpoint) {
                     if (text.parseTime() != null) {
                         duration = text.parseTime()
-                    } else if (text.any { it.isDigit() } && text.contains(Regex("[a-zA-Z]"))) {
+                    } else if (text.any { it.isDigit() } && text.contains(Regex("view|play", RegexOption.IGNORE_CASE))) {
                         views = text
+                    } else if (text.equals("Song", true) || text.equals("Video", true) || text.equals("Explicit", true)) {
+                        // ignore
+                    } else if (artists.isEmpty() && !text.matches(Regex("^\\d{4}$"))) {
+                        runs.oddElements().forEach { run ->
+                            artists.add(Artist(name = run.text, id = run.navigationEndpoint?.browseEndpoint?.browseId))
+                        }
                     }
                 }
             }
             
-            if (artists.isEmpty() && listRun.isNotEmpty()) {
-                artists.addAll(listRun.first().oddElements().map {
-                    Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
-                })
+            val titleText = renderer.title.runs?.firstOrNull()?.text
+            if (artists.isEmpty() && titleText != null) {
+                if (renderer.onTap.watchEndpoint != null) {
+                    val headerTitle = renderer.header?.musicCardShelfHeaderBasicRenderer?.title?.runs?.firstOrNull()?.text
+                    if (headerTitle != null) {
+                        artists.add(Artist(name = headerTitle, id = null))
+                    }
+                }
             }
 
             return when {
@@ -133,13 +146,7 @@ data class SearchSummaryPage(
                             renderer.title.runs
                                 ?.firstOrNull()
                                 ?.text ?: return null,
-                        artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                                )
-                            } ?: return null,
+                        artists = artists.ifEmpty { return null },
                         year = null,
                         thumbnail = renderer.thumbnail.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                         explicit =
@@ -187,46 +194,49 @@ data class SearchSummaryPage(
             }
         }
 
-        fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): YTItem? {
-            val secondaryLine = renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator() ?: return null
+        fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer, fallbackArtist: String? = null): YTItem? {
+            val secondaryLine = renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator() ?: emptyList()
             val thirdLine = renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator() ?: emptyList()
-            val listRun = (secondaryLine + thirdLine).clean()
+            val allRuns = (secondaryLine + thirdLine)
             
             var album: Album? = null
             val artists = mutableListOf<Artist>()
             var views: String? = null
             var duration: Int? = null
 
-            listRun.forEach { runs ->
-                val text = runs.joinToString("") { it.text }
+            allRuns.forEach { runs ->
+                val text = runs.joinToString("") { it.text }.trim()
+                if (text.isEmpty()) return@forEach
+
                 var hasEndpoint = false
                 runs.forEach { run ->
                     val pageType = run.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
-                    if (pageType == MUSIC_PAGE_TYPE_ALBUM) {
+                    if (pageType == MUSIC_PAGE_TYPE_ALBUM || pageType == "MUSIC_PAGE_TYPE_ALBUM") {
                         album = Album(name = run.text, id = run.navigationEndpoint.browseEndpoint.browseId!!)
                         hasEndpoint = true
-                    } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL) {
+                    } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == "MUSIC_PAGE_TYPE_ARTIST" || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL || pageType == "MUSIC_PAGE_TYPE_USER_CHANNEL") {
                         artists.add(Artist(name = run.text, id = run.navigationEndpoint.browseEndpoint.browseId!!))
                         hasEndpoint = true
                     }
                 }
+
                 if (!hasEndpoint) {
                     if (text.parseTime() != null) {
                         duration = text.parseTime()
-                    } else if (text.any { it.isDigit() } && text.contains(Regex("[a-zA-Z]"))) {
+                    } else if (text.any { it.isDigit() } && text.contains(Regex("view|play", RegexOption.IGNORE_CASE))) {
                         views = text
+                    } else if (text.equals("Song", true) || text.equals("Video", true) || text.equals("Explicit", true)) {
+                        // ignore
+                    } else if (artists.isEmpty() && !text.matches(Regex("^\\d{4}$"))) {
+                        runs.oddElements().forEach { run ->
+                            artists.add(Artist(name = run.text, id = run.navigationEndpoint?.browseEndpoint?.browseId))
+                        }
                     }
                 }
             }
 
-            if (artists.isEmpty() && listRun.isNotEmpty()) {
-                artists.addAll(listRun.first().oddElements().map {
-                    Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
-                })
-            }
-            
-            if (duration == null) {
-                duration = listRun.lastOrNull()?.firstOrNull()?.text?.parseTime() ?: secondaryLine.lastOrNull()?.firstOrNull()?.text?.parseTime()
+            if (artists.isEmpty() && fallbackArtist != null) {
+                artists.add(Artist(name = fallbackArtist, id = null))
             }
 
             val watchEndpoint = renderer.navigationEndpoint?.watchEndpoint 
@@ -297,19 +307,8 @@ data class SearchSummaryPage(
                                 ?.runs
                                 ?.firstOrNull()
                                 ?.text ?: return null,
-                        artists =
-                            secondaryLine.getOrNull(1)?.oddElements()?.map {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                                )
-                            } ?: return null,
-                        year =
-                            secondaryLine
-                                .getOrNull(2)
-                                ?.firstOrNull()
-                                ?.text
-                                ?.toIntOrNull(),
+                        artists = artists.ifEmpty { return null },
+                        year = null,
                         thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                         explicit =
                             renderer.badges?.find {
@@ -334,12 +333,7 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         author =
-                            secondaryLine.getOrNull(1)?.firstOrNull()?.let {
-                                Artist(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                                )
-                            } ?: return null,
+                            artists.firstOrNull() ?: return null,
                         songCountText =
                             renderer.flexColumns
                                 .getOrNull(1)
