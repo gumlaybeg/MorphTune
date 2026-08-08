@@ -65,7 +65,7 @@ data class SearchSummaryPage(
                             subtitle.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                                 Album(
                                     name = it.text,
-                                    id = it.navigationEndpoint.browseEndpoint.browseId,
+                                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
                                 )
                             },
                         duration =
@@ -203,12 +203,12 @@ data class SearchSummaryPage(
                             ?.browseEndpointContextMusicConfig
                             ?.pageType
                     if (pageType == MUSIC_PAGE_TYPE_ALBUM) {
-                        album = Album(name = it.text, id = it.navigationEndpoint.browseEndpoint.browseId)
+                        album = Album(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId!!)
                     } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL) {
                         artist.add(
                             Artist(
                                 name = it.text,
-                                id = it.navigationEndpoint.browseEndpoint.browseId,
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
                             ),
                         )
                     }
