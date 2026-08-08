@@ -57,20 +57,20 @@ import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AppBarHeight
 import com.arturo254.opentune.extensions.togglePlayPause
-import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
-import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
-import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
-import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
-import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
-import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
-import com.arturo254.opentune.innertube.YouTube.SearchFilter
-import com.arturo254.opentune.innertube.models.AlbumItem
-import com.arturo254.opentune.innertube.models.ArtistItem
-import com.arturo254.opentune.innertube.models.PlaylistItem
-import com.arturo254.opentune.innertube.models.SongItem
-import com.arturo254.opentune.innertube.models.WatchEndpoint
-import com.arturo254.opentune.innertube.models.YTItem
-import com.arturo254.opentune.innertube.pages.SearchSummary
+import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
+import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
+import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
+import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
+import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
+import com.arturo254.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
+import com.arturo254.innertube.YouTube.SearchFilter
+import com.arturo254.innertube.models.AlbumItem
+import com.arturo254.innertube.models.ArtistItem
+import com.arturo254.innertube.models.PlaylistItem
+import com.arturo254.innertube.models.SongItem
+import com.arturo254.innertube.models.WatchEndpoint
+import com.arturo254.innertube.models.YTItem
+import com.arturo254.innertube.pages.SearchSummary
 import com.arturo254.opentune.models.toMediaMetadata
 import com.arturo254.opentune.playback.queues.YouTubeQueue
 import com.arturo254.opentune.ui.component.ChipsRow
@@ -118,14 +118,16 @@ fun OnlineSearchResult(
             ?.takeIf { it.items.isNotEmpty() }
             ?.let { list.add(it) }
 
-        listOf(
+        val filterTitles = listOf<Pair<SearchFilter, String>>(
             FILTER_SONG to "Songs",
             FILTER_VIDEO to "Videos",
             FILTER_ALBUM to "Albums",
             FILTER_ARTIST to "Artists",
             FILTER_COMMUNITY_PLAYLIST to "Community Playlists",
             FILTER_FEATURED_PLAYLIST to "Featured Playlists",
-        ).forEach { (sectionFilter, sectionTitle) ->
+        )
+        
+        filterTitles.forEach { (sectionFilter, sectionTitle) ->
             viewModel.viewStateMap[sectionFilter.value]
                 ?.items
                 ?.takeIf { it.isNotEmpty() }
@@ -255,16 +257,17 @@ fun OnlineSearchResult(
                 )
                 .fillMaxWidth(),
         ) {
+            val chips = listOf<Pair<SearchFilter?, String>>(
+                null to stringResource(R.string.filter_all),
+                FILTER_SONG to stringResource(R.string.filter_songs),
+                FILTER_VIDEO to stringResource(R.string.filter_videos),
+                FILTER_ALBUM to stringResource(R.string.filter_albums),
+                FILTER_ARTIST to stringResource(R.string.filter_artists),
+                FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
+                FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
+            )
             ChipsRow<SearchFilter?>(
-                chips = listOf(
-                    null to stringResource(R.string.filter_all),
-                    FILTER_SONG to stringResource(R.string.filter_songs),
-                    FILTER_VIDEO to stringResource(R.string.filter_videos),
-                    FILTER_ALBUM to stringResource(R.string.filter_albums),
-                    FILTER_ARTIST to stringResource(R.string.filter_artists),
-                    FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
-                    FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
-                ),
+                chips = chips,
                 currentValue = searchFilter,
                 onValueUpdate = {
                     if (viewModel.filter.value != it) {
