@@ -43,6 +43,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,11 +77,9 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -87,9 +87,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -113,8 +111,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -154,8 +150,6 @@ import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
 import com.arturo254.opentune.checkForUpdates
 import com.arturo254.opentune.isNewerVersion
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -282,6 +276,38 @@ data class SettingsIntegrationAction(
     val accentColor: Color,
 )
 
+data class SettingsProfileState(
+    val isLoading: Boolean,
+    val isLoggedIn: Boolean,
+    val accountName: String,
+    val accountEmail: String,
+    val accountImageUrl: String?,
+)
+
+data class SettingsContentState(
+    val profileHeader: SettingsProfileState,
+    val quickActions: List<SettingsQuickAction>,
+    val integrations: List<SettingsIntegrationAction>,
+    val groups: List<SettingsGroup>,
+    val internalGroup: SettingsGroup?,
+    val showPermissionBanner: Boolean,
+    val showUpdateBanner: Boolean,
+    val latestVersion: String,
+    val showBetaUpdateBanner: Boolean,
+    val latestBetaVersion: String,
+    val isSearchActive: Boolean,
+    val searchQuery: String,
+    val searchHistory: List<String>,
+    val hasSearchResults: Boolean,
+    val onProfileHeaderClick: () -> Unit,
+    val onRequestPermission: () -> Unit,
+    val onUpdateClick: () -> Unit,
+    val onBetaUpdateClick: () -> Unit,
+    val onSearchHistoryItemClick: (String) -> Unit,
+    val onRemoveSearchHistoryItem: (String) -> Unit,
+    val onClearSearchHistory: () -> Unit,
+)
+
 // --- MAIN SCREEN ---
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -358,16 +384,20 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val newVersion = checkForUpdates()
-        if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
-            hasUpdate = true
-            fetchedLatestVersion = newVersion
+        if (newVersion != null) {
+            if (isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
+                hasUpdate = true
+                fetchedLatestVersion = newVersion
+            }
         }
         
         val newBetaVersion = checkForBetaUpdates()
-        if (newBetaVersion != null && isNewerVersion(newBetaVersion, BuildConfig.VERSION_NAME)) {
-            if (newVersion == null || isNewerVersion(newBetaVersion, newVersion)) {
-                hasBetaUpdate = true
-                fetchedLatestBetaVersion = newBetaVersion
+        if (newBetaVersion != null) {
+            if (isNewerVersion(newBetaVersion, BuildConfig.VERSION_NAME)) {
+                if (newVersion == null || isNewerVersion(newBetaVersion, newVersion)) {
+                    hasBetaUpdate = true
+                    fetchedLatestBetaVersion = newBetaVersion
+                }
             }
         }
     }
@@ -1005,7 +1035,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         SettingsItem(
             icon = painterResource(R.drawable.sliders),
             title = stringResource(R.string.player_slider_style),
-            keywords = listOf("player", "slider", "style", "squiggly", "slim"),
+            keywords = listOf("player", "sliders", "style", "squiggly", "slim"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
@@ -1392,5 +1422,370 @@ fun MusicTogetherScreen(
                 Text("Go Back")
             }
         }
+    }
+}
+
+// --- CORE UTILITY FUNCTIONS ---
+
+@Composable
+fun VersionCard(uriHandler: UriHandler) {
+    val context = LocalContext.current
+    val appVersion = remember { getAppVersion(context) }
+
+    Spacer(Modifier.height(16.dp))
+
+    SettingsCategory(
+        title = "App Info",
+        items = listOf(
+            SettingsCategoryItem(
+                icon = painterResource(R.drawable.info),
+                title = {
+                    Column {
+                        Text(
+                            text = "Version",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = appVersion,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                },
+                trailingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.arrow_forward),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                onClick = { uriHandler.openUri("https://github.com/Arturo254/OpenTune/releases/latest") }
+            )
+        )
+    )
+}
+
+@Composable
+fun UpdateCard(latestVersion: String = "") {
+    val context = LocalContext.current
+    var showUpdateCard by remember { mutableStateOf(false) }
+    var currentLatestVersion by remember { mutableStateOf(latestVersion) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val newVersion = checkForUpdates()
+        if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
+            showUpdateCard = true
+            currentLatestVersion = newVersion
+        }
+    }
+
+    if (showDownloadDialog) {
+        UpdateDownloadDialog(
+            latestVersion = currentLatestVersion,
+            isBeta = false,
+            onDismiss = { showDownloadDialog = false }
+        )
+    }
+
+    if (showUpdateCard) {
+        Spacer(Modifier.height(25.dp))
+        ElevatedCard(
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 6.dp
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(170.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+            shape = RoundedCornerShape(38.dp),
+            onClick = {
+                showDownloadDialog = true
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Spacer(Modifier.height(3.dp))
+
+                Text(
+                    text = "New Version: $currentLatestVersion",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 18.sp,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = "Warning ",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = "Tap to Update",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UpdateDownloadDialog(
+    latestVersion: String,
+    isBeta: Boolean = false,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
+    var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
+    val downloadScope = rememberCoroutineScope()
+
+    val installPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (context.packageManager.canRequestPackageInstalls() && downloadedApkUri != null) {
+                installApk(context, downloadedApkUri!!)
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = {
+        if (downloadStatus != DownloadStatus.DOWNLOADING) {
+            onDismiss()
+        }
+    }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (isBeta) "Update Beta Version ($latestVersion)" else "Update Version ($latestVersion)",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                when (downloadStatus) {
+                    DownloadStatus.NOT_STARTED -> {
+                        Text(if (isBeta) "Do you want to download the beta update?" else "Do you want to download the update?")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text("Cancel")
+                            }
+                            Button(onClick = {
+                                downloadStatus = DownloadStatus.DOWNLOADING
+                                downloadScope.launch {
+                                    downloadedApkUri =
+                                        downloadApk(context, latestVersion) { progress ->
+                                            downloadProgress = progress
+                                        }
+                                    if (downloadedApkUri != null) {
+                                        downloadStatus = DownloadStatus.COMPLETED
+                                        downloadProgress = 1f
+                                    } else {
+                                        downloadStatus = DownloadStatus.ERROR
+                                    }
+                                }
+                            }) {
+                                Text("Download")
+                            }
+                        }
+                    }
+
+                    DownloadStatus.DOWNLOADING -> {
+                        Text("Downloading...")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "${(downloadProgress * 100).toInt()}%",
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
+                    DownloadStatus.COMPLETED -> {
+                        Text("Download completed")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text("Close")
+                            }
+                            Button(onClick = {
+                                if (downloadedApkUri != null) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        if (!context.packageManager.canRequestPackageInstalls()) {
+                                            val intent =
+                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                                                    .setData("package:${context.packageName}".toUri())
+
+                                            installPermissionLauncher.launch(intent)
+                                        } else {
+                                            installApk(context, downloadedApkUri!!)
+                                        }
+                                    } else {
+                                        installApk(context, downloadedApkUri!!)
+                                    }
+                                }
+                            }) {
+                                Text("Install")
+                            }
+                        }
+                    }
+
+                    DownloadStatus.ERROR -> {
+                        Text("Download error")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onDismiss) {
+                            Text("Close")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+suspend fun downloadApk(
+    context: Context,
+    version: String,
+    onProgressUpdate: (Float) -> Unit
+): Uri? = withContext(Dispatchers.IO) {
+    try {
+        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
+
+        val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        val apkFile = File(downloadDir, "app-release-$version.apk")
+
+        if (apkFile.exists()) {
+            apkFile.delete()
+        }
+
+        val client = OkHttpClient()
+        var request = Request.Builder().url(apkUrl).build()
+        var response = client.newCall(request).execute()
+
+        if (!response.isSuccessful) {
+            val altUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/OpenTune-$version.apk"
+            request = Request.Builder().url(altUrl).build()
+            response = client.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                return@withContext null
+            }
+        }
+
+        val body = response.body ?: return@withContext null
+        val contentLength = body.contentLength()
+        val inputStream = body.byteStream()
+        val outputStream = FileOutputStream(apkFile)
+        val buffer = ByteArray(8 * 1024)
+        var totalBytesRead = 0L
+        var bytesRead: Int
+
+        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+            outputStream.write(buffer, 0, bytesRead)
+            totalBytesRead += bytesRead
+
+            if (contentLength > 0) {
+                val progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                withContext(Dispatchers.Main) {
+                    onProgressUpdate(progress)
+                }
+            }
+        }
+        outputStream.flush()
+        outputStream.close()
+        inputStream.close()
+        
+        withContext(Dispatchers.Main) {
+            onProgressUpdate(1f)
+        }
+
+        return@withContext FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            apkFile
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext null
+    }
+}
+
+fun installApk(context: Context, apkUri: Uri) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val pm = context.packageManager
+        val isAllowed = pm.canRequestPackageInstalls()
+        if (!isAllowed) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                .setData("package:${context.packageName}".toUri())
+            context.startActivity(intent)
+            return
+        }
+    }
+
+    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(apkUri, "application/vnd.android.package-archive")
+        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+
+    context.startActivity(installIntent)
+}
+
+suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
+    try {
+        val url = URL("https://api.github.com/repos/Arturo254/OpenTune/releases")
+        val connection = url.openConnection()
+        connection.connect()
+        val json = connection.getInputStream().reader().use { it.readText() }
+        val jsonArray = org.json.JSONArray(json)
+        for (i in 0 until jsonArray.length()) {
+            val release = jsonArray.getJSONObject(i)
+            if (release.getBoolean("prerelease")) {
+                return@withContext release.getString("tag_name")
+            }
+        }
+        return@withContext null
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext null
     }
 }
