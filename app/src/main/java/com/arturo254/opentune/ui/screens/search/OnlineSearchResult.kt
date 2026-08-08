@@ -63,6 +63,7 @@ import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_CO
 import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_FEATURED_PLAYLIST
 import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_SONG
 import com.arturo254.opentune.innertube.YouTube.SearchFilter.Companion.FILTER_VIDEO
+import com.arturo254.opentune.innertube.YouTube.SearchFilter
 import com.arturo254.opentune.innertube.models.AlbumItem
 import com.arturo254.opentune.innertube.models.ArtistItem
 import com.arturo254.opentune.innertube.models.PlaylistItem
@@ -108,30 +109,33 @@ fun OnlineSearchResult(
             }
         }
     }
-    val allModeSections =
-        buildList<SearchSummary> {
-            searchSummary
-                ?.summaries
-                ?.firstOrNull()
-                ?.takeIf { it.items.isNotEmpty() }
-                ?.let(::add)
 
-            listOf(
-                FILTER_SONG to stringResource(R.string.filter_songs),
-                FILTER_VIDEO to stringResource(R.string.filter_videos),
-                FILTER_ALBUM to stringResource(R.string.filter_albums),
-                FILTER_ARTIST to stringResource(R.string.filter_artists),
-                FILTER_COMMUNITY_PLAYLIST to stringResource(R.string.filter_community_playlists),
-                FILTER_FEATURED_PLAYLIST to stringResource(R.string.filter_featured_playlists),
-            ).forEach { (sectionFilter, sectionTitle) ->
-                viewModel.viewStateMap[sectionFilter.value]
-                    ?.items
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.let { items ->
-                        add(SearchSummary(title = sectionTitle, items = items))
-                    }
-            }
+    val allModeSections = remember(searchSummary, viewModel.viewStateMap.toMap()) {
+        val list = mutableListOf<SearchSummary>()
+        searchSummary
+            ?.summaries
+            ?.firstOrNull()
+            ?.takeIf { it.items.isNotEmpty() }
+            ?.let { list.add(it) }
+
+        listOf(
+            FILTER_SONG to "Songs",
+            FILTER_VIDEO to "Videos",
+            FILTER_ALBUM to "Albums",
+            FILTER_ARTIST to "Artists",
+            FILTER_COMMUNITY_PLAYLIST to "Community Playlists",
+            FILTER_FEATURED_PLAYLIST to "Featured Playlists",
+        ).forEach { (sectionFilter, sectionTitle) ->
+            viewModel.viewStateMap[sectionFilter.value]
+                ?.items
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { items ->
+                    list.add(SearchSummary(title = sectionTitle, items = items))
+                }
         }
+        list
+    }
+
     val isAllModeLoaded =
         searchSummary != null ||
             listOf(
@@ -251,7 +255,7 @@ fun OnlineSearchResult(
                 )
                 .fillMaxWidth(),
         ) {
-            ChipsRow(
+            ChipsRow<SearchFilter?>(
                 chips = listOf(
                     null to stringResource(R.string.filter_all),
                     FILTER_SONG to stringResource(R.string.filter_songs),
