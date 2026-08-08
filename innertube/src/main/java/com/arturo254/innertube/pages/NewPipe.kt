@@ -3,13 +3,13 @@ package com.arturo254.innertube.pages
 import com.arturo254.innertube.models.response.PlayerResponse
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.schabi.newpipe.extractor.NewPipe
-import org.schabi.newpipe.extractor.downloader.Downloader
-import org.schabi.newpipe.extractor.downloader.Request
-import org.schabi.newpipe.extractor.downloader.Response
-import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
-import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
-import org.schabi.newpipe.extractor.stream.StreamInfo
+import project.pipepipe.extractor.NewPipe
+import project.pipepipe.extractor.downloader.Downloader
+import project.pipepipe.extractor.downloader.Request
+import project.pipepipe.extractor.downloader.Response
+import project.pipepipe.extractor.exceptions.ReCaptchaException
+import project.pipepipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
+import project.pipepipe.extractor.stream.StreamInfo
 import java.io.IOException
 
 class NewPipeDownloaderImpl : Downloader() {
