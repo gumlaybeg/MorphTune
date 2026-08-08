@@ -65,7 +65,7 @@ data class SearchSummaryPage(
                             subtitle.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                                 Album(
                                     name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                                    id = it.navigationEndpoint.browseEndpoint.browseId,
                                 )
                             },
                         duration =
@@ -79,6 +79,7 @@ data class SearchSummaryPage(
                             renderer.subtitleBadges?.find {
                                 it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                             } != null,
+                        musicVideoType = renderer.onTap.watchEndpoint.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
                     )
                 }
 
@@ -201,8 +202,7 @@ data class SearchSummaryPage(
                             ?.browseEndpointContextSupportedConfigs
                             ?.browseEndpointContextMusicConfig
                             ?.pageType
-                    if (pageType == MUSIC_PAGE_TYPE_ALBUM
-                    ) {
+                    if (pageType == MUSIC_PAGE_TYPE_ALBUM) {
                         album = Album(name = it.text, id = it.navigationEndpoint.browseEndpoint.browseId)
                     } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL) {
                         artist.add(
@@ -214,6 +214,9 @@ data class SearchSummaryPage(
                     }
                 }
             }
+            val watchEndpoint = renderer.navigationEndpoint?.watchEndpoint 
+                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint
+
             return when {
                 renderer.isSong -> {
                     SongItem(
@@ -246,6 +249,7 @@ data class SearchSummaryPage(
                             renderer.badges?.find {
                                 it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                             } != null,
+                        musicVideoType = watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
                     )
                 }
 
@@ -271,8 +275,8 @@ data class SearchSummaryPage(
                                 ?.navigationEndpoint
                                 ?.watchPlaylistEndpoint ?: return null,
                         radioEndpoint =
-                            renderer.menu.menuRenderer.items
-                                .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                            renderer.menu?.menuRenderer?.items
+                                ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                                 ?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
                                 ?.watchPlaylistEndpoint ?: return null,
@@ -367,8 +371,8 @@ data class SearchSummaryPage(
                                 ?.navigationEndpoint
                                 ?.watchPlaylistEndpoint ?: return null,
                         radioEndpoint =
-                            renderer.menu.menuRenderer.items
-                                .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                            renderer.menu?.menuRenderer?.items
+                                ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                                 ?.menuNavigationItemRenderer
                                 ?.navigationEndpoint
                                 ?.watchPlaylistEndpoint ?: return null,
