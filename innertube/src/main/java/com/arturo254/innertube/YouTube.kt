@@ -98,7 +98,10 @@ object YouTube {
         get() = innerTube.cookie
         set(value) {
             innerTube.cookie = value
+            cookieMap = if (value == null) emptyMap() else parseCookieString(value)
         }
+    private var cookieMap = emptyMap<String, String>()
+
     var proxy: Proxy?
         get() = innerTube.proxy
         set(value) {
@@ -266,19 +269,6 @@ object YouTube {
             }
             response.header?.musicDetailHeaderRenderer?.description?.runs?.let { yield(it) }
             response.header?.musicImmersiveHeaderRenderer?.description?.runs?.let { yield(it) }
-            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer?.description?.runs?.let { yield(it) }
-            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
-            
-            response.contents?.twoColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
-                tab?.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
-                    content.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
-                }
-            }
-            response.contents?.singleColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
-                tab.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
-                    content.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
-                }
-            }
         }.firstOrNull()?.let(::mapRuns)
 
         val description = descriptionRuns?.joinToString(separator = "") { it.text }
@@ -365,14 +355,14 @@ object YouTube {
         val seenContinuations = mutableSetOf<String>()
         var requestCount = 0
         val maxRequests = 50 
-        
+
         while (continuation != null && requestCount < maxRequests) {
             if (continuation in seenContinuations) {
                 break
             }
             seenContinuations.add(continuation)
             requestCount++
-            
+
             response = innerTube.browse(
                 client = WEB_REMIX,
                 continuation = continuation,
@@ -432,12 +422,12 @@ object YouTube {
         val response = innerTube.browse(WEB_REMIX, endpoint.browseId, endpoint.params).body<BrowseResponse>()
         val sectionContent = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-        
+
         val gridRenderer = sectionContent?.gridRenderer
         val musicCarouselShelfRenderer = sectionContent?.musicCarouselShelfRenderer
         val musicPlaylistShelfRenderer = sectionContent?.musicPlaylistShelfRenderer
         val musicShelfRenderer = sectionContent?.musicShelfRenderer
-        
+
         when {
             gridRenderer != null -> {
                 ArtistItemsPage(
@@ -465,8 +455,8 @@ object YouTube {
             }
             musicShelfRenderer != null -> {
                 ArtistItemsPage(
-                    title = musicShelfRenderer.title?.runs?.firstOrNull()?.text 
-                        ?: response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text 
+                    title = musicShelfRenderer.title?.runs?.firstOrNull()?.text
+                        ?: response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text
                         ?: "",
                     items = musicShelfRenderer.contents?.getItems()?.mapNotNull {
                         ArtistItemsPage.fromMusicResponsiveListItemRenderer(it)
@@ -522,7 +512,7 @@ object YouTube {
                 } ?: emptyList()
                 ArtistItemsContinuationPage(
                     items = items,
-                    continuation = if (items.isEmpty()) null else response.onResponseReceivedActions.firstOrNull()?.appendContinuationItemsAction?.continuationItems?.getContinuation()
+                    continuation = if (items.isEmpty()) null else response.onResponseReceivedActions?.firstOrNull()?.appendContinuationItemsAction?.continuationItems?.getContinuation()
                 )
             }
         }
@@ -620,8 +610,7 @@ object YouTube {
                 ?: response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
                     ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations?.getContinuation(),
             continuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
-                ?.continuations?.getContinuation(),
-            related = related?.ifEmpty { null }
+                ?.continuations?.getContinuation()
         )
     }
 
@@ -663,23 +652,11 @@ object YouTube {
             .mapNotNull { renderer -> PlaylistPage.fromMusicResponsiveListItemRenderer(renderer) }
 
         val nextContinuation = if (songs.isEmpty()) null else {
-            response.continuationContents
-                ?.sectionListContinuation
-                ?.continuations
-                ?.getContinuation()
-                ?: response.continuationContents
-                    ?.musicPlaylistShelfContinuation
-                    ?.continuations
-                    ?.getContinuation()
-                ?: response.continuationContents
-                    ?.musicShelfContinuation
-                    ?.continuations
-                    ?.getContinuation()
-                ?: response.onResponseReceivedActions
-                    ?.firstOrNull()
-                    ?.appendContinuationItemsAction
-                    ?.continuationItems
-                    ?.getContinuation()
+            val cc = response.continuationContents
+            cc?.sectionListContinuation?.continuations?.getContinuation()
+                ?: cc?.musicPlaylistShelfContinuation?.continuations?.getContinuation()
+                ?: cc?.musicShelfContinuation?.continuations?.getContinuation()
+                ?: response.onResponseReceivedActions?.firstOrNull()?.appendContinuationItemsAction?.continuationItems?.getContinuation()
         }
 
         PlaylistContinuationPage(
@@ -1444,9 +1421,8 @@ object YouTube {
         val tokenFromEngagementPanels = commentsPanel?.engagementPanelSectionListRenderer?.content?.sectionListRenderer?.contents
             ?.mapNotNull { it.itemSectionRenderer }
             ?.flatMap { it.contents.orEmpty() }
-            ?.mapNotNull { it?.continuationItemRenderer }
+            ?.mapNotNull { it.continuationItemRenderer }
             ?.firstOrNull()?.continuationEndpoint?.continuationCommand?.token
-
 
         val contentList = response.contents.twoColumnWatchNextResults?.results?.results?.content
 
@@ -1462,7 +1438,6 @@ object YouTube {
                 ?: tokenFromEngagementPanels
                 ?: throw Exception("No comment continuation token found for videoId=$videoId")
 
-
         commentContinuation(token).getOrThrow()
     }
 
@@ -1475,11 +1450,10 @@ object YouTube {
         }
 
         val legacyComments = continuationItems.mapNotNull { it.commentThreadRenderer }
-            .filter { it.comment?.commentRenderer != null || it.commentViewModel?.commentViewModel != null }
+            .filter { it.comment?.commentRenderer != null }
 
         val legacyCommentsMap = legacyComments.associateBy { thread ->
             thread.comment?.commentRenderer?.commentId 
-                ?: thread.commentViewModel?.commentViewModel?.commentId
                 ?: "legacy-${thread.hashCode()}"
         }
 
