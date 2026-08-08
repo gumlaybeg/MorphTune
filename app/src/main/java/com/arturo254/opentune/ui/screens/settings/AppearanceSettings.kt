@@ -150,7 +150,7 @@ fun AppearanceSettings(
         defaultValue = false
     )
 
-    // Estados de formas
+    // Shape preferences
     val smallButtonsShapeState = rememberPreference(
         key = SmallButtonsShapeKey,
         defaultValue = DefaultSmallButtonsShape
@@ -326,7 +326,6 @@ fun AppearanceSettings(
         }
     }
 
-
     SettingsPage(
         title = stringResource(R.string.appearance),
         navController = navController,
@@ -335,38 +334,44 @@ fun AppearanceSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.theme),
             items = listOf(
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_dynamic_theme)) },
-                    icon = { Icon(painterResource(R.drawable.palette), null) },
-                    checked = dynamicTheme,
-                    onCheckedChange = onDynamicThemeChange,
-                )},
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.dark_theme)) },
-                    icon = { Icon(painterResource(R.drawable.dark_mode), null) },
-                    selectedValue = darkMode,
-                    onValueSelected = onDarkModeChange,
-                    valueText = {
-                        when (it) {
-                            DarkMode.ON -> stringResource(R.string.dark_theme_on)
-                            DarkMode.OFF -> stringResource(R.string.dark_theme_off)
-                            DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
-                        }
-                    },
-                )},
-                {AnimatedVisibility(useDarkTheme) {
+                {
                     SwitchPreference(
-                        title = { Text(stringResource(R.string.pure_black)) },
-                        icon = { Icon(painterResource(R.drawable.contrast), null) },
-                        checked = pureBlack && useDarkTheme,
-                        onCheckedChange = { newValue ->
-                            if (useDarkTheme) {
-                                onPureBlackChange(newValue)
+                        title = { Text(stringResource(R.string.enable_dynamic_theme)) },
+                        icon = { Icon(painterResource(R.drawable.palette), null) },
+                        checked = dynamicTheme,
+                        onCheckedChange = onDynamicThemeChange,
+                    )
+                },
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.dark_theme)) },
+                        icon = { Icon(painterResource(R.drawable.dark_mode), null) },
+                        selectedValue = darkMode,
+                        onValueSelected = onDarkModeChange,
+                        valueText = {
+                            when (it) {
+                                DarkMode.ON -> stringResource(R.string.dark_theme_on)
+                                DarkMode.OFF -> stringResource(R.string.dark_theme_off)
+                                DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
                             }
                         },
-                        isEnabled = useDarkTheme
                     )
-                }}
+                },
+                {
+                    AnimatedVisibility(useDarkTheme) {
+                        SwitchPreference(
+                            title = { Text(stringResource(R.string.pure_black)) },
+                            icon = { Icon(painterResource(R.drawable.contrast), null) },
+                            checked = pureBlack && useDarkTheme,
+                            onCheckedChange = { newValue ->
+                                if (useDarkTheme) {
+                                    onPureBlackChange(newValue)
+                                }
+                            },
+                            isEnabled = useDarkTheme
+                        )
+                    }
+                }
             )
         )
 
@@ -387,7 +392,6 @@ fun AppearanceSettings(
             }
         }
 
-        // Also ensure that the selected value is compatible.
         val safeSelectedValue = if (playerBackground == PlayerBackgroundStyle.BLUR &&
             Build.VERSION.SDK_INT < Build.VERSION_CODES.S
         ) {
@@ -399,28 +403,30 @@ fun AppearanceSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.player),
             items = listOf(
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.player_background_style)) },
-                    icon = { Icon(painterResource(R.drawable.gradient), null) },
-                    selectedValue = safeSelectedValue,
-                    onValueSelected = onPlayerBackgroundChange,
-                    valueText = {
-                        when (it) {
-                            PlayerBackgroundStyle.DEFAULT -> stringResource(R.string.follow_theme)
-                            PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.gradient)
-                            PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
-                            PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.player_background_style)) },
+                        icon = { Icon(painterResource(R.drawable.gradient), null) },
+                        selectedValue = safeSelectedValue,
+                        onValueSelected = onPlayerBackgroundChange,
+                        valueText = {
+                            when (it) {
+                                PlayerBackgroundStyle.DEFAULT -> stringResource(R.string.follow_theme)
+                                PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.gradient)
+                                PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
+                                PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
+                            }
+                        },
+                        values = availableBackgroundStyles
+                    )
+                },
+                {
+                    ThumbnailCornerRadiusSelectorButton(
+                        onRadiusSelected = { selectedRadius ->
+                            Timber.tag("Thumbnail").d("Selected radius: $selectedRadius")
                         }
-                    },
-                    values = availableBackgroundStyles
-                )},
-
-                {ThumbnailCornerRadiusSelectorButton(
-                    onRadiusSelected = { selectedRadius ->
-                        Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
-                    }
-                )},
-
+                    )
+                },
                 {
                     UnifiedShapeSelectorButton(
                         smallButtonsShape = smallButtonsShapeState.value,
@@ -433,103 +439,109 @@ fun AppearanceSettings(
                         }
                     )
                 },
-
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.player_buttons_style)) },
-                    icon = { Icon(painterResource(R.drawable.palette), null) },
-                    selectedValue = playerButtonsStyle,
-                    onValueSelected = onPlayerButtonsStyleChange,
-                    valueText = {
-                        when (it) {
-                            PlayerButtonsStyle.DEFAULT -> stringResource(R.string.default_style)
-                            PlayerButtonsStyle.PRIMARY -> stringResource(R.string.secondary_color_style)
-                            PlayerButtonsStyle.TERTIARY -> stringResource(R.string.tertiary_color_style)
-                        }
-                    },
-                )},
-
-                {PreferenceEntry(
-                    title = { Text(stringResource(R.string.player_slider_style)) },
-                    description =
-                        when (sliderStyle) {
-                            SliderStyle.DEFAULT -> stringResource(R.string.default_)
-                            SliderStyle.SQUIGGLY -> stringResource(R.string.squiggly)
-                            SliderStyle.SLIM -> stringResource(R.string.slim)
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.player_buttons_style)) },
+                        icon = { Icon(painterResource(R.drawable.palette), null) },
+                        selectedValue = playerButtonsStyle,
+                        onValueSelected = onPlayerButtonsStyleChange,
+                        valueText = {
+                            when (it) {
+                                PlayerButtonsStyle.DEFAULT -> stringResource(R.string.default_style)
+                                PlayerButtonsStyle.PRIMARY -> stringResource(R.string.secondary_color_style)
+                                PlayerButtonsStyle.TERTIARY -> stringResource(R.string.tertiary_color_style)
+                            }
                         },
-                    icon = { Icon(painterResource(R.drawable.sliders), null) },
-                    onClick = {
-                        showSliderOptionDialog = true
-                    },
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_swipe_thumbnail)) },
-                    icon = { Icon(painterResource(R.drawable.swipe), null) },
-                    checked = swipeThumbnail,
-                    onCheckedChange = onSwipeThumbnailChange,
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.Rotatelyricsbackground)) },
-                    description = null,
-                    icon = { Icon(painterResource(R.drawable.album), null) },
-                    checked = rotateBackground,
-                    onCheckedChange = onRotateBackgroundChange
-                )},
-
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.player_text_alignment)) },
-                    icon = {
-                        Icon(
-                            painter =
-                                painterResource(
+                    )
+                },
+                {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.player_slider_style)) },
+                        description =
+                            when (sliderStyle) {
+                                SliderStyle.DEFAULT -> stringResource(R.string.default_)
+                                SliderStyle.SQUIGGLY -> stringResource(R.string.squiggly)
+                                SliderStyle.SLIM -> stringResource(R.string.slim)
+                            },
+                        icon = { Icon(painterResource(R.drawable.sliders), null) },
+                        onClick = {
+                            showSliderOptionDialog = true
+                        },
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_swipe_thumbnail)) },
+                        icon = { Icon(painterResource(R.drawable.swipe), null) },
+                        checked = swipeThumbnail,
+                        onCheckedChange = onSwipeThumbnailChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.Rotatelyricsbackground)) },
+                        description = null,
+                        icon = { Icon(painterResource(R.drawable.album), null) },
+                        checked = rotateBackground,
+                        onCheckedChange = onRotateBackgroundChange
+                    )
+                },
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.player_text_alignment)) },
+                        icon = {
+                            Icon(
+                                painter = painterResource(
                                     when (playerTextAlignment) {
                                         PlayerTextAlignment.CENTER -> R.drawable.format_align_center
                                         PlayerTextAlignment.SIDED -> R.drawable.format_align_left
-                                    },
+                                    }
                                 ),
-                            contentDescription = null,
-                        )
-                    },
-                    selectedValue = playerTextAlignment,
-                    onValueSelected = onPlayerTextAlignmentChange,
-                    valueText = {
-                        when (it) {
-                            PlayerTextAlignment.SIDED -> stringResource(R.string.sided)
-                            PlayerTextAlignment.CENTER -> stringResource(R.string.center)
-                        }
-                    },
-                )},
-
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.lyrics_text_position)) },
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    selectedValue = lyricsPosition,
-                    onValueSelected = onLyricsPositionChange,
-                    valueText = {
-                        when (it) {
-                            LyricsPosition.LEFT -> stringResource(R.string.left)
-                            LyricsPosition.CENTER -> stringResource(R.string.center)
-                            LyricsPosition.RIGHT -> stringResource(R.string.right)
-                        }
-                    },
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.lyrics_click_change)) },
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = lyricsClick,
-                    onCheckedChange = onLyricsClickChange,
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.animate_lyrics)) },
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    description = stringResource(R.string.animate_lyrics_desc),
-                    checked = animateLyrics,
-                    onCheckedChange = onAnimateLyricsChange
-                )},
-
+                                contentDescription = null,
+                            )
+                        },
+                        selectedValue = playerTextAlignment,
+                        onValueSelected = onPlayerTextAlignmentChange,
+                        valueText = {
+                            when (it) {
+                                PlayerTextAlignment.SIDED -> stringResource(R.string.sided)
+                                PlayerTextAlignment.CENTER -> stringResource(R.string.center)
+                            }
+                        },
+                    )
+                },
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.lyrics_text_position)) },
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        selectedValue = lyricsPosition,
+                        onValueSelected = onLyricsPositionChange,
+                        valueText = {
+                            when (it) {
+                                LyricsPosition.LEFT -> stringResource(R.string.left)
+                                LyricsPosition.CENTER -> stringResource(R.string.center)
+                                LyricsPosition.RIGHT -> stringResource(R.string.right)
+                            }
+                        },
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.lyrics_click_change)) },
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = lyricsClick,
+                        onCheckedChange = onLyricsClickChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.animate_lyrics)) },
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        description = stringResource(R.string.animate_lyrics_desc),
+                        checked = animateLyrics,
+                        onCheckedChange = onAnimateLyricsChange
+                    )
+                },
                 {
                     val (showExtraButton, onShowExtraButtonChange) = rememberPreference(
                         key = PlayerExtraButtonKey,
@@ -543,7 +555,6 @@ fun AppearanceSettings(
                         onCheckedChange = onShowExtraButtonChange
                     )
                 },
-
                 {
                     val (showExtraButton, _) = rememberPreference(
                         key = PlayerExtraButtonKey,
@@ -577,63 +588,68 @@ fun AppearanceSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.misc),
             items = listOf(
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.default_open_tab)) },
-                    icon = { Icon(painterResource(R.drawable.nav_bar), null) },
-                    selectedValue = defaultOpenTab,
-                    onValueSelected = onDefaultOpenTabChange,
-                    valueText = {
-                        when (it) {
-                            NavigationTab.HOME -> stringResource(R.string.home)
-                            NavigationTab.EXPLORE -> stringResource(R.string.explore)
-                            NavigationTab.LIBRARY -> stringResource(R.string.filter_library)
-                        }
-                    },
-                )},
-
-                {ListPreference(
-                    title = { Text(stringResource(R.string.default_lib_chips)) },
-                    icon = { Icon(painterResource(R.drawable.tab), null) },
-                    selectedValue = defaultChip,
-                    values = listOf(
-                        LibraryFilter.LIBRARY, LibraryFilter.PLAYLISTS, LibraryFilter.SONGS,
-                        LibraryFilter.ALBUMS, LibraryFilter.ARTISTS
-                    ),
-                    valueText = {
-                        when (it) {
-                            LibraryFilter.SONGS -> stringResource(R.string.songs)
-                            LibraryFilter.ARTISTS -> stringResource(R.string.artists)
-                            LibraryFilter.ALBUMS -> stringResource(R.string.albums)
-                            LibraryFilter.PLAYLISTS -> stringResource(R.string.playlists)
-                            LibraryFilter.LIBRARY -> stringResource(R.string.filter_library)
-                        }
-                    },
-                    onValueSelected = onDefaultChipChange,
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.slim_navbar)) },
-                    icon = { Icon(painterResource(R.drawable.nav_bar), null) },
-                    checked = slimNav,
-                    onCheckedChange = onSlimNavChange
-                )},
-
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.grid_cell_size)) },
-                    icon = { Icon(painterResource(R.drawable.grid_view), null) },
-                    selectedValue = gridItemSize,
-                    onValueSelected = onGridItemSizeChange,
-                    valueText = {
-                        when (it) {
-                            GridItemSize.SMALL -> stringResource(R.string.small)
-                            GridItemSize.BIG -> stringResource(R.string.big)
-                        }
-                    },
-                )},
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.default_open_tab)) },
+                        icon = { Icon(painterResource(R.drawable.nav_bar), null) },
+                        selectedValue = defaultOpenTab,
+                        onValueSelected = onDefaultOpenTabChange,
+                        valueText = {
+                            when (it) {
+                                NavigationTab.HOME -> stringResource(R.string.home)
+                                NavigationTab.EXPLORE -> stringResource(R.string.explore)
+                                NavigationTab.LIBRARY -> stringResource(R.string.filter_library)
+                            }
+                        },
+                    )
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.default_lib_chips)) },
+                        icon = { Icon(painterResource(R.drawable.tab), null) },
+                        selectedValue = defaultChip,
+                        values = listOf(
+                            LibraryFilter.LIBRARY, LibraryFilter.PLAYLISTS, LibraryFilter.SONGS,
+                            LibraryFilter.ALBUMS, LibraryFilter.ARTISTS
+                        ),
+                        valueText = {
+                            when (it) {
+                                LibraryFilter.SONGS -> stringResource(R.string.songs)
+                                LibraryFilter.ARTISTS -> stringResource(R.string.artists)
+                                LibraryFilter.ALBUMS -> stringResource(R.string.albums)
+                                LibraryFilter.PLAYLISTS -> stringResource(R.string.playlists)
+                                LibraryFilter.LIBRARY -> stringResource(R.string.filter_library)
+                            }
+                        },
+                        onValueSelected = onDefaultChipChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.slim_navbar)) },
+                        icon = { Icon(painterResource(R.drawable.nav_bar), null) },
+                        checked = slimNav,
+                        onCheckedChange = onSlimNavChange
+                    )
+                },
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.grid_cell_size)) },
+                        icon = { Icon(painterResource(R.drawable.grid_view), null) },
+                        selectedValue = gridItemSize,
+                        onValueSelected = onGridItemSizeChange,
+                        valueText = {
+                            when (it) {
+                                GridItemSize.SMALL -> stringResource(R.string.small)
+                                GridItemSize.BIG -> stringResource(R.string.big)
+                            }
+                        },
+                    )
+                },
             )
         )
 
-        // New avatar selector
+        // Custom avatar selector
         AvatarSelector(modifier = Modifier.padding(vertical = 8.dp))
     }
 }
