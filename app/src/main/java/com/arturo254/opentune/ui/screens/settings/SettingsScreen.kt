@@ -1,22 +1,38 @@
+/*
+ * ArchiveTune & OpenTune Projects (2026)
+ * Licensed Under GPL-3.0 | see git history for contributors
+ */
+
 package com.arturo254.opentune.ui.screens.settings
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -24,7 +40,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -35,12 +53,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,61 +72,84 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import androidx.window.core.layout.WindowSizeClass
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.arturo254.innertube.utils.parseCookieString
 import com.arturo254.opentune.BuildConfig
@@ -121,15 +162,12 @@ import com.arturo254.opentune.ui.component.AvatarSelection
 import com.arturo254.opentune.ui.component.ChangelogScreen
 import com.arturo254.opentune.ui.component.TopSearch
 import com.arturo254.opentune.ui.utils.backToMain
-import com.arturo254.opentune.constants.AccountNameKey
-import com.arturo254.opentune.constants.InnerTubeCookieKey
-import com.arturo254.opentune.constants.AccountEmailKey
-import com.arturo254.opentune.constants.AccountChannelHandleKey
-import com.arturo254.opentune.constants.DefaultOpenTabKey
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
-import com.arturo254.opentune.ui.player.UpdateDownloadDialog
-import com.arturo254.opentune.ui.player.DownloadStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 // ==========================================
 // 1. DIMENSIONS & ANIMATION CONFIGURATION
@@ -315,7 +353,7 @@ fun filterIntegrations(
 @Composable
 fun SettingsScreen(
     latestVersion: Long,
-    navController: NavHostController,
+    navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val context = LocalContext.current
@@ -439,7 +477,7 @@ fun SettingsScreen(
 
     val internalGroup = if (filteredInternalItems.isNotEmpty()) {
         SettingsGroup(
-            title = stringResource(R.string.internal_subcategory_settings),
+            title = stringResource(R.string.experiment_settings),
             items = filteredInternalItems,
         )
     } else null
@@ -491,8 +529,7 @@ fun SettingsScreen(
                     },
                     actions = {
                         IconButton(
-                            onClick = { isSearching = true },
-                            onLongClick = {},
+                            onClick = { isSearching = true }
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.search),
@@ -542,12 +579,7 @@ fun SettingsScreen(
                     placeholder = { Text(text = stringResource(R.string.search)) },
                     leadingIcon = {
                         IconButton(
-                            onClick = { resetSearch() },
-                            onLongClick = {
-                                if (queryText.isBlank()) {
-                                    navController.backToMain()
-                                }
-                            },
+                            onClick = { resetSearch() }
                         ) {
                             Icon(
                                 painterResource(R.drawable.arrow_back),
@@ -559,8 +591,7 @@ fun SettingsScreen(
                         Row {
                             if (query.text.isNotBlank()) {
                                 IconButton(
-                                    onClick = { query = TextFieldValue() },
-                                    onLongClick = {},
+                                    onClick = { query = TextFieldValue() }
                                 ) {
                                     Icon(
                                         painter = painterResource(R.drawable.close),
@@ -642,14 +673,12 @@ fun SettingsScreen(
 
 @Composable
 fun resolveLayoutMode(): SettingsLayoutMode {
-    val windowInfo = currentWindowAdaptiveInfo().windowSizeClass
+    val configuration = LocalConfiguration.current
+    val width = configuration.screenWidthDp
     return when {
-        windowInfo.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
-            SettingsLayoutMode.EXPANDED
-        windowInfo.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) ->
-            SettingsLayoutMode.MEDIUM
-        else ->
-            SettingsLayoutMode.COMPACT
+        width >= 840 -> SettingsLayoutMode.EXPANDED
+        width >= 600 -> SettingsLayoutMode.MEDIUM
+        else -> SettingsLayoutMode.COMPACT
     }
 }
 
@@ -856,7 +885,7 @@ fun SettingsPermissionBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.permissions_title),
+                    text = "System Permissions",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -864,7 +893,7 @@ fun SettingsPermissionBanner(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = stringResource(R.string.permissions_subtitle),
+                    text = "Grant permissions for storage and notifications to enable full features.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -883,7 +912,7 @@ fun SettingsPermissionBanner(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.allow),
+                    text = "Allow",
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -960,7 +989,7 @@ fun SettingsUpdateBanner(
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(14.dp) )
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -988,7 +1017,7 @@ fun SettingsUpdateBanner(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.arrow_forward),
+                    painter = painterResource(R.drawable.navigate_next),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp),
@@ -1223,6 +1252,85 @@ fun SettingsRow(
 // ==========================================
 // 6. ADAPTIVE LAYOUTS
 // ==========================================
+
+@Composable
+fun AdaptiveSettingsLayout(
+    state: SettingsContentState,
+    modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
+    topPadding: Dp = 0.dp,
+) {
+    val layoutMode = resolveLayoutMode()
+
+    var heroVisible by remember { mutableStateOf(false) }
+    var bannerVisible by remember { mutableStateOf(false) }
+    var quickActionsVisible by remember { mutableStateOf(false) }
+    var integrationsVisible by remember { mutableStateOf(false) }
+    var categoriesVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val anim = Animatable(0f)
+        anim.animateTo(1f, tween(50))
+        heroVisible = true
+        anim.animateTo(1f, tween(60))
+        bannerVisible = true
+        anim.animateTo(1f, tween(60))
+        quickActionsVisible = true
+        anim.animateTo(1f, tween(70))
+        integrationsVisible = true
+        anim.animateTo(1f, tween(70))
+        categoriesVisible = true
+    }
+
+    val quickActionColumns = when (layoutMode) {
+        SettingsLayoutMode.COMPACT -> SettingsDimensions.CompactColumns
+        SettingsLayoutMode.MEDIUM -> SettingsDimensions.MediumColumns
+        SettingsLayoutMode.EXPANDED -> SettingsDimensions.ExpandedColumns
+    }
+
+    when (layoutMode) {
+        SettingsLayoutMode.COMPACT -> {
+            CompactSettingsLayout(
+                state = state,
+                listState = listState,
+                quickActionColumns = quickActionColumns,
+                heroVisible = heroVisible,
+                bannerVisible = bannerVisible,
+                quickActionsVisible = quickActionsVisible,
+                integrationsVisible = integrationsVisible,
+                categoriesVisible = categoriesVisible,
+                topPadding = topPadding,
+                modifier = modifier,
+            )
+        }
+        SettingsLayoutMode.MEDIUM -> {
+            MediumSettingsLayout(
+                state = state,
+                quickActionColumns = quickActionColumns,
+                heroVisible = heroVisible,
+                bannerVisible = bannerVisible,
+                quickActionsVisible = quickActionsVisible,
+                integrationsVisible = integrationsVisible,
+                categoriesVisible = categoriesVisible,
+                topPadding = topPadding,
+                modifier = modifier,
+            )
+        }
+        SettingsLayoutMode.EXPANDED -> {
+            ExpandedSettingsLayout(
+                state = state,
+                quickActionColumns = quickActionColumns,
+                heroVisible = heroVisible,
+                bannerVisible = bannerVisible,
+                quickActionsVisible = quickActionsVisible,
+                integrationsVisible = integrationsVisible,
+                categoriesVisible = categoriesVisible,
+                topPadding = topPadding,
+                modifier = modifier,
+            )
+        }
+    }
+}
 
 @Composable
 private fun CompactSettingsLayout(
@@ -1739,196 +1847,7 @@ private fun ExpandedSettingsLayout(
 }
 
 // ==========================================
-// 7. GRID & ROW CONTAINER CONTROLS
-// ==========================================
-
-@Composable
-fun SettingsQuickActionsSection(
-    actions: List<SettingsQuickAction>,
-    columns: Int = SettingsDimensions.CompactColumns,
-    modifier: Modifier = Modifier,
-) {
-    if (actions.isEmpty()) return
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        val rows = actions.chunked(columns)
-        rows.forEach { rowActions ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                rowActions.forEach { action ->
-                    QuickActionCard(
-                        action = action,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                repeat(columns - rowActions.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun QuickActionCard(
-    action: SettingsQuickAction,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) SettingsAnimations.TilePressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
-        label = "tileScale",
-    )
-    val iconRotation by animateFloatAsState(
-        targetValue = if (isPressed) SettingsAnimations.IconPressRotation else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "iconRotation",
-    )
-
-    Surface(
-        modifier = modifier
-            .scale(scale)
-            .aspectRatio(SettingsDimensions.QuickActionTileAspectRatio),
-        shape = RoundedCornerShape(SettingsDimensions.QuickActionCardCornerRadius),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        onClick = action.onClick,
-        interactionSource = interactionSource,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            action.accentColor.copy(alpha = 0.10f),
-                            Color.Transparent,
-                        ),
-                    ),
-                )
-                .padding(14.dp),
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(SettingsDimensions.QuickActionIconSize)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(action.accentColor.copy(alpha = 0.14f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = action.icon,
-                        contentDescription = action.label,
-                        tint = action.accentColor,
-                        modifier = Modifier
-                            .size(SettingsDimensions.QuickActionIconInnerSize)
-                            .graphicsLayer { rotationZ = iconRotation },
-                    )
-                }
-
-                Text(
-                    text = action.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun SettingsIntegrationsSection(
-    integrations: List<SettingsIntegrationAction>,
-    modifier: Modifier = Modifier,
-) {
-    if (integrations.isEmpty()) return
-
-    LazyRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        items(
-            count = integrations.size,
-            key = { integrations[it].label },
-        ) { index ->
-            IntegrationPill(action = integrations[index])
-        }
-    }
-}
-
-@Composable
-fun IntegrationPill(
-    action: SettingsIntegrationAction,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) SettingsAnimations.PillPressScale else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
-        label = "pillScale",
-    )
-    val lift by animateFloatAsState(
-        targetValue = if (isPressed) SettingsAnimations.PillPressLift.value else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "pillLift",
-    )
-
-    Surface(
-        modifier = modifier
-            .scale(scale)
-            .graphicsLayer { translationY = lift },
-        shape = RoundedCornerShape(SettingsDimensions.IntegrationPillCornerRadius),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        onClick = action.onClick,
-        interactionSource = interactionSource,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(SettingsDimensions.IntegrationIconSize)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(action.accentColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = action.icon,
-                    contentDescription = null,
-                    tint = action.accentColor,
-                    modifier = Modifier.size(SettingsDimensions.IntegrationIconInnerSize),
-                )
-            }
-
-            Text(
-                text = action.label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-// ==========================================
-// 8. DATA BUILDERS & ROUTING MAPPING
+// 7. DATA BUILDERS & ROUTING MAPPING
 // ==========================================
 
 @Composable
