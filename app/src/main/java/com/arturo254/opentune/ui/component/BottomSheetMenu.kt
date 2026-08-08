@@ -13,52 +13,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 
 val LocalMenuState = compositionLocalOf { MenuState() }
-
-@Composable
-fun rememberNoSnapBackNestedScrollConnection(): NestedScrollConnection {
-    return remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                return available
-            }
-
-            override suspend fun onPostFling(
-                consumed: Velocity,
-                available: Velocity
-            ): Velocity {
-                return available
-            }
-        }
-    }
-}
-
-@Composable
-fun Modifier.preventSheetSnapBack(): Modifier {
-    val connection = rememberNoSnapBackNestedScrollConnection()
-    return this.nestedScroll(connection)
-}
 
 @Stable
 class MenuState(
@@ -111,7 +77,6 @@ fun BottomSheetMenu(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .preventSheetSnapBack()
                     .padding(horizontal = 20.dp)
             ) {
                 state.content(this)
