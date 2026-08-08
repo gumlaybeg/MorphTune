@@ -979,6 +979,9 @@ fun AlbumGridItem(
             visible = isActive,
             enter = fadeIn(tween(500)),
             exit = fadeOut(tween(500)),
+            modifier =
+                Modifier
+                    .align(Alignment.Center),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -986,7 +989,7 @@ fun AlbumGridItem(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = 0.4f),
+                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -1455,7 +1458,8 @@ fun YouTubeListItem(
         when (item) {
             is SongItem -> joinByBullet(
                 item.artists.joinToString { it.name },
-                makeTimeString(item.duration?.times(1000L))
+                item.views,
+                item.duration?.let { makeTimeString(it * 1000L) }
             )
 
             is AlbumItem -> joinByBullet(
@@ -1785,7 +1789,8 @@ fun YouTubeGridItem(
                 when (item) {
                     is SongItem -> joinByBullet(
                         item.artists.joinToString { it.name },
-                        makeTimeString(item.duration?.times(1000L))
+                        item.views, // Added views
+                        item.duration?.let { makeTimeString(it * 1000L) }
                     )
 
                     is AlbumItem -> joinByBullet(
