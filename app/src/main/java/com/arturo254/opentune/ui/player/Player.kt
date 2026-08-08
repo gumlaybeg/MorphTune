@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.drawable.BitmapDrawable
 import android.os.SystemClock
+import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -16,8 +17,10 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,52 +31,16 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -84,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
@@ -91,15 +59,19 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
@@ -107,7 +79,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.common.C
@@ -146,7 +117,6 @@ import com.arturo254.opentune.ui.component.PlayerSliderTrack
 import com.arturo254.opentune.ui.component.rememberBottomSheetState
 import com.arturo254.opentune.ui.menu.PlayerMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
-import com.arturo254.opentune.ui.utils.ShowMediaInfo
 import com.arturo254.opentune.utils.makeTimeString
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
@@ -156,9 +126,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import com.arturo254.opentune.playback.PlayerConnection
+import android.text.format.DateUtils
+import com.arturo254.opentune.ui.theme.PlayerColorExtractor
+import com.arturo254.opentune.ui.theme.PlayerSliderColors
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
+import androidx.compose.foundation.text.BasicText
 
 private const val SeekbarSettleToleranceMs = 1_500L
 
@@ -338,7 +312,7 @@ fun BottomSheetPlayer(
                         .sizeIn(minWidth = 280.dp, maxWidth = 560.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    listOf(
+                    listOf<Pair<String, String?>>(
                         stringResource(R.string.song_title) to mediaMetadata?.title,
                         stringResource(R.string.song_artists) to mediaMetadata?.artists?.joinToString { it.name },
                         stringResource(R.string.media_id) to mediaMetadata?.id,
@@ -427,7 +401,7 @@ fun BottomSheetPlayer(
                             if (thumbnailUrl != null) {
                                 Box {
                                     AsyncImage(
-                                        model = ImageRequest.Builder(context).data(thumbnailUrl).allowHardware(false).build(),
+                                        model = coil.request.ImageRequest.Builder(context).data(thumbnailUrl).allowHardware(false).build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize().blur(if (useDarkTheme) 150.dp else 100.dp)
@@ -466,7 +440,6 @@ fun BottomSheetPlayer(
             MiniPlayer(
                 position = position,
                 duration = duration,
-                pureBlack = pureBlack,
             )
         },
     ) {
@@ -524,7 +497,7 @@ fun BottomSheetPlayer(
                                     onLongClick = {
                                         val clip = ClipData.newPlainText("Copied Title", title)
                                         clipboardManager.setPrimaryClip(clip)
-                                        Toast.makeText(context, "Copied Title", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
                                     }
                                 ),
                         )
@@ -593,7 +566,7 @@ fun BottomSheetPlayer(
                                     onLongClick = {
                                         val clip = ClipData.newPlainText("Copied Artist", annotatedString.text)
                                         clipboardManager.setPrimaryClip(clip)
-                                        Toast.makeText(context, "Copied Artist", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
                                     }
                                 )
                         )
@@ -662,13 +635,7 @@ fun BottomSheetPlayer(
                                     mediaMetadata = mediaMetadata,
                                     navController = navController,
                                     playerBottomSheetState = state,
-                                    onShowDetailsDialog = {
-                                        mediaMetadata.id.let {
-                                            bottomSheetPageState.show {
-                                                ShowMediaInfo(it)
-                                            }
-                                        }
-                                    },
+                                    onShowDetailsDialog = { showDetailsDialog = true },
                                     onDismiss = menuState::dismiss,
                                 )
                             }
@@ -1011,9 +978,13 @@ fun BottomSheetPlayer(
 
         val (queueTextButtonColor, queueIconButtonColor) = when (playerButtonsStyle) {
             PlayerButtonsStyle.DEFAULT -> Pair(queueOnBackgroundColor, queueSurfaceColor)
-            PlayerButtonsStyle.SECONDARY -> Pair(
-                MaterialTheme.colorScheme.secondary,
-                MaterialTheme.colorScheme.onSecondary
+            PlayerButtonsStyle.PRIMARY -> Pair(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.onPrimary
+            )
+            PlayerButtonsStyle.TERTIARY -> Pair(
+                MaterialTheme.colorScheme.tertiary,
+                MaterialTheme.colorScheme.onTertiary
             )
         }
 
@@ -1028,11 +999,7 @@ fun BottomSheetPlayer(
                 MaterialTheme.colorScheme.surfaceContainer
             },
             onBackgroundColor = queueOnBackgroundColor,
-            TextBackgroundColor = TextBackgroundColor,
-            textButtonColor = queueTextButtonColor,
-            iconButtonColor = queueIconButtonColor,
-            onShowLyrics = { /* Optional */ },
-            pureBlack = pureBlack,
+            textBackgroundColor = TextBackgroundColor,
         )
     }
 }
