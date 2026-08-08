@@ -45,7 +45,7 @@ data class SearchSummaryPage(
 
     companion object {
         fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): YTItem? {
-            val subtitle = renderer.subtitle.runs?.splitBySeparator()
+            val subtitle = renderer.subtitle.runs?.splitBySeparator()?.clean()
             return when {
                 renderer.onTap.watchEndpoint != null -> {
                     SongItem(
@@ -55,14 +55,14 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
+                            subtitle?.getOrNull(0)?.oddElements()?.map {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
                             } ?: return null,
                         album =
-                            subtitle.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                            subtitle.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                                 Album(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
@@ -70,7 +70,7 @@ data class SearchSummaryPage(
                             },
                         duration =
                             subtitle
-                                .lastOrNull()
+                                ?.lastOrNull()
                                 ?.firstOrNull()
                                 ?.text
                                 ?.parseTime(),
@@ -121,7 +121,7 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
+                            subtitle?.getOrNull(0)?.oddElements()?.map {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
@@ -148,7 +148,7 @@ data class SearchSummaryPage(
                         author =
                             Artist(
                                 id = null,
-                                name = renderer.subtitle.runs?.joinToString { it.text } ?: return null,
+                                name = subtitle?.getOrNull(0)?.joinToString("") { it.text } ?: return null,
                             ),
                         songCountText = null,
                         thumbnail = renderer.thumbnail.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
@@ -345,15 +345,12 @@ data class SearchSummaryPage(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
-                            } ?: return null,
+                            },
                         songCountText =
-                            renderer.flexColumns
+                            listRun
                                 .getOrNull(1)
-                                ?.musicResponsiveListItemFlexColumnRenderer
-                                ?.text
-                                ?.runs
-                                ?.lastOrNull()
-                                ?.text ?: return null,
+                                ?.firstOrNull()
+                                ?.text,
                         thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
                         playEndpoint =
                             renderer.overlay
