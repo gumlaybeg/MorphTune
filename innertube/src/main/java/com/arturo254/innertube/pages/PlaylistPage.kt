@@ -5,6 +5,7 @@ import com.arturo254.innertube.models.Artist
 import com.arturo254.innertube.models.MusicResponsiveListItemRenderer
 import com.arturo254.innertube.models.PlaylistItem
 import com.arturo254.innertube.models.SongItem
+import com.arturo254.innertube.models.YTItem
 import com.arturo254.innertube.models.oddElements
 import com.arturo254.innertube.utils.parseTime
 
@@ -13,6 +14,7 @@ data class PlaylistPage(
     val songs: List<SongItem>,
     val songsContinuation: String?,
     val continuation: String?,
+    val related: List<YTItem>? = null
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? {
