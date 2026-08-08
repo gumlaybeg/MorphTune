@@ -73,9 +73,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -162,8 +159,6 @@ class LocaleManager private constructor(private val context: Context) {
         private const val PREF_NAME = "locale_preferences"
         private const val PREF_LANGUAGE_KEY = "selected_language"
         private const val SYSTEM_DEFAULT = "system_default"
-        private const val RESTART_DELAY = 800L
-        private const val ANIMATION_DELAY = 200L
 
         @Volatile
         private var instance: LocaleManager? = null
@@ -449,19 +444,16 @@ class LocaleManager private constructor(private val context: Context) {
 
     fun restartApp(context: Context) {
         try {
-            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            val packageManager = context.packageManager
+            val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+
             intent?.let {
-                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-                Handler(Looper.getMainLooper()).postDelayed({
-                    context.startActivity(it)
-                    if (context is Activity) {
-                        context.finish()
-                        context.overridePendingTransition(
-                            android.R.anim.fade_in,
-                            android.R.anim.fade_out
-                        )
-                    }
-                }, RESTART_DELAY)
+                val componentName = it.component
+                val mainIntent = Intent.makeRestartActivityTask(componentName)
+                mainIntent.setPackage(context.packageName)
+
+                context.startActivity(mainIntent)
+                Runtime.getRuntime().exit(0)
             }
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error restarting application")
