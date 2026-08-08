@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -45,6 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -66,6 +69,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
@@ -186,10 +191,11 @@ data class SettingsIntegrationAction(
 )
 
 // --- MAIN SCREEN ---
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    latestVersionName: String,
+    latestVersion: Long,
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
@@ -203,14 +209,17 @@ fun SettingsScreen(
     var query by remember { mutableStateOf(TextFieldValue()) }
     val focusRequester = remember { FocusRequester() }
 
-    val showUpdateBanner = latestVersionName != BuildConfig.VERSION_NAME
+    var latestVersionName by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
+    var showUpdateBanner by remember { mutableStateOf(false) }
     var showDownloadDialog by remember { mutableStateOf(false) }
     var showTranslateDialog by remember { mutableStateOf(false) }
     var showChangelogSheet by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isSearching) {
-        if (isSearching) {
-            focusRequester.requestFocus()
+    LaunchedEffect(Unit) {
+        val newVersion = checkForUpdates()
+        if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
+            showUpdateBanner = true
+            latestVersionName = newVersion
         }
     }
 
