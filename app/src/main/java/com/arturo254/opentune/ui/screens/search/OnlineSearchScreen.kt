@@ -59,7 +59,6 @@ import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.R
 import com.arturo254.opentune.db.entities.SearchHistory
 import com.arturo254.opentune.viewmodels.OnlineSearchSuggestionViewModel
-import com.arturo254.opentune.viewmodels.SearchSuggestionViewState
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -93,10 +92,6 @@ fun OnlineSearchScreen(
 
     val backgroundColor = MaterialTheme.colorScheme.background
 
-    // Se extraen de forma segura para evitar problemas de resolución de referencias dentro del LazyColumn
-    val historyList = viewState.history
-    val suggestionsList = viewState.suggestions
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -117,24 +112,24 @@ fun OnlineSearchScreen(
                 .widthIn(max = SearchContentMaxWidth)
                 .fillMaxSize(),
         ) {
-            if (historyList.isNotEmpty()) {
+            if (viewState.history.isNotEmpty()) {
                 item(
                     key = "history_header",
                     contentType = "section_header",
                 ) {
                     SearchSectionHeader(
-                        title = stringResource(R.string.search_history),
+                        title = stringResource(R.string.SearchHistory),
                         modifier = Modifier.animateItem(),
                     )
                 }
 
                 itemsIndexed(
-                    items = historyList,
+                    items = viewState.history,
                     key = { _, history -> "history_${history.query}" },
                     contentType = { _, _ -> "history" },
                 ) { index, history ->
-                    val itemShape = remember(index, historyList.size) {
-                        segmentedSearchItemShape(index, historyList.size)
+                    val itemShape = remember(index, viewState.history.size) {
+                        segmentedSearchItemShape(index, viewState.history.size)
                     }
                     SuggestionItem(
                         query = history.query,
@@ -157,24 +152,24 @@ fun OnlineSearchScreen(
                 }
             }
 
-            if (suggestionsList.isNotEmpty()) {
+            if (viewState.suggestions.isNotEmpty()) {
                 item(
                     key = "suggestions_header",
                     contentType = "section_header",
                 ) {
                     SearchSectionHeader(
-                        title = stringResource(R.string.suggestions),
+                        title = stringResource(R.string.Sujestions),
                         modifier = Modifier.animateItem(),
                     )
                 }
 
                 itemsIndexed(
-                    items = suggestionsList,
+                    items = viewState.suggestions,
                     key = { _, suggestion -> "suggestion_$suggestion" },
                     contentType = { _, _ -> "suggestion" },
                 ) { index, suggestion ->
-                    val itemShape = remember(index, suggestionsList.size) {
-                        segmentedSearchItemShape(index, suggestionsList.size)
+                    val itemShape = remember(index, viewState.suggestions.size) {
+                        segmentedSearchItemShape(index, viewState.suggestions.size)
                     }
                     SuggestionItem(
                         query = suggestion,
