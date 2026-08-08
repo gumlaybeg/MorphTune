@@ -37,7 +37,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -70,7 +69,6 @@ import com.arturo254.innertube.models.PlaylistItem
 import com.arturo254.innertube.models.SongItem
 import com.arturo254.innertube.models.WatchEndpoint
 import com.arturo254.innertube.models.YTItem
-import com.arturo254.innertube.pages.SearchSummary
 import com.arturo254.opentune.models.toMediaMetadata
 import com.arturo254.opentune.playback.queues.YouTubeQueue
 import com.arturo254.opentune.ui.component.ChipsRow
@@ -102,52 +100,14 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
-    val itemsPage by remember(searchFilter) {
+    
+    val itemsPage by androidx.compose.runtime.remember(searchFilter) {
         derivedStateOf {
             searchFilter?.value?.let {
                 viewModel.viewStateMap[it]
             }
         }
     }
-
-    val allModeSections = remember(searchSummary, viewModel.viewStateMap.toMap()) {
-        val list = mutableListOf<SearchSummary>()
-        searchSummary
-            ?.summaries
-            ?.firstOrNull()
-            ?.takeIf { it.items.isNotEmpty() }
-            ?.let { list.add(it) }
-
-        val filterTitles = listOf<Pair<SearchFilter, String>>(
-            FILTER_SONG to "Songs",
-            FILTER_VIDEO to "Videos",
-            FILTER_ALBUM to "Albums",
-            FILTER_ARTIST to "Artists",
-            FILTER_COMMUNITY_PLAYLIST to "Community Playlists",
-            FILTER_FEATURED_PLAYLIST to "Featured Playlists",
-        )
-        
-        filterTitles.forEach { (sectionFilter, sectionTitle) ->
-            viewModel.viewStateMap[sectionFilter.value]
-                ?.items
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { items ->
-                    list.add(SearchSummary(title = sectionTitle, items = items))
-                }
-        }
-        list
-    }
-
-    val isAllModeLoaded =
-        searchSummary != null ||
-            listOf(
-                FILTER_SONG,
-                FILTER_VIDEO,
-                FILTER_ALBUM,
-                FILTER_ARTIST,
-                FILTER_COMMUNITY_PLAYLIST,
-                FILTER_FEATURED_PLAYLIST,
-            ).all { viewModel.viewStateMap.containsKey(it.value) }
 
     LaunchedEffect(lazyListState) {
         snapshotFlow {
@@ -289,7 +249,10 @@ fun OnlineSearchResult(
             modifier = Modifier.weight(1f),
         ) {
             if (searchFilter == null) {
-                allModeSections.forEachIndexed { index, summary ->
+                // Iterar directamente sobre los resúmenes retornados por el backend (Top result, Canciones, Artistas, etc.)
+                val summaries = searchSummary?.summaries.orEmpty()
+                
+                summaries.forEachIndexed { index, summary ->
                     if (index > 0) {
                         item(key = "divider_$index", contentType = "divider") {
                             HorizontalDivider(
@@ -341,7 +304,7 @@ fun OnlineSearchResult(
                     }
                 }
 
-                if (allModeSections.isEmpty() && isAllModeLoaded) {
+                if (searchSummary != null && summaries.isEmpty()) {
                     item(key = "empty_all", contentType = "empty") {
                         EmptyPlaceholder(
                             icon = R.drawable.search,
@@ -377,7 +340,7 @@ fun OnlineSearchResult(
                 }
             }
 
-            if ((searchFilter == null && allModeSections.isEmpty() && !isAllModeLoaded) || (searchFilter != null && itemsPage == null)) {
+            if ((searchFilter == null && searchSummary == null) || (searchFilter != null && itemsPage == null)) {
                 item(key = "initial_loading", contentType = "loading") {
                     ShimmerHost {
                         repeat(8) {
