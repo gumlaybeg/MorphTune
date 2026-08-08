@@ -15,7 +15,7 @@ object NewPipeExtractor {
         format: PlayerResponse.StreamingData.Format,
         videoId: String
     ): String? {
-        val signatureCipher = format.signatureCipher ?: format.cipher
+        val signatureCipher = format.signatureCipher
         return if (!signatureCipher.isNullOrEmpty()) {
             YouTubeExtractor.decryptUrl(signatureCipher)
         } else if (!format.url.isNullOrEmpty()) {
