@@ -254,32 +254,20 @@ object YouTube {
         }
 
         val descriptionRuns = sequence {
-            response.contents?.twoColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
-                tab?.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
-                    content.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
-                }
-            }
-            response.contents?.singleColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
+            response.contents?.twoColumnBrowseResultsRenderer?.tabs?.filterNotNull()?.forEach { tab ->
                 tab.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
-                    content.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
+                    content.musicDescriptionShelfRenderer?.description?.runs?.let { yieldAll(it) }
                 }
             }
-            response.header?.musicDetailHeaderRenderer?.description?.runs?.let { yield(it) }
-            response.header?.musicImmersiveHeaderRenderer?.description?.runs?.let { yield(it) }
-            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer?.description?.runs?.let { yield(it) }
-            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
-            
-            response.contents?.twoColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
-                tab?.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
-                    content.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
-                }
-            }
-            response.contents?.singleColumnBrowseResultsRenderer?.tabs?.forEach { tab ->
+            response.contents?.singleColumnBrowseResultsRenderer?.tabs?.filterNotNull()?.forEach { tab ->
                 tab.tabRenderer?.content?.sectionListRenderer?.contents?.forEach { content ->
-                    content.musicResponsiveHeaderRenderer?.description?.musicDescriptionShelfRenderer?.description?.runs?.let { yield(it) }
+                    content.musicDescriptionShelfRenderer?.description?.runs?.let { yieldAll(it) }
                 }
             }
-        }.firstOrNull()?.let(::mapRuns)
+            response.header?.musicDetailHeaderRenderer?.description?.runs?.let { yieldAll(it) }
+            response.header?.musicImmersiveHeaderRenderer?.description?.runs?.let { yieldAll(it) }
+            response.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer?.description?.runs?.let { yieldAll(it) }
+        }.toList().ifEmpty { null }?.let(::mapRuns)
 
         val description = descriptionRuns?.joinToString(separator = "") { it.text }
 
@@ -411,10 +399,6 @@ object YouTube {
                     ?: response.header?.musicVisualHeaderRenderer?.foregroundThumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
                     ?: response.header?.musicDetailHeaderRenderer?.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: "",
                 channelId = response.header?.musicImmersiveHeaderRenderer?.subscriptionButton?.subscribeButtonRenderer?.channelId,
-                playEndpoint = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
-                    ?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer
-                    ?.contents?.firstOrNull()?.musicResponsiveListItemRenderer?.overlay?.musicItemThumbnailOverlayRenderer
-                    ?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint,
                 shuffleEndpoint = response.header?.musicImmersiveHeaderRenderer?.playButton?.buttonRenderer?.navigationEndpoint?.watchEndpoint
                     ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
                         ?.contents?.firstOrNull()?.musicShelfRenderer?.contents?.firstOrNull()?.musicResponsiveListItemRenderer?.navigationEndpoint?.watchPlaylistEndpoint,
@@ -588,7 +572,6 @@ object YouTube {
         val descFromMicroformat = response.microformat?.microformatDataRenderer?.description
 
         val description: String? = descFromShelf ?: descFromSecondaryShelf ?: descFromEditable ?: descFromTopLevel ?: descFromMicroformat
-
 
         PlaylistPage(
             playlist = PlaylistItem(
@@ -1437,14 +1420,11 @@ object YouTube {
         val contentList = response.contents.twoColumnWatchNextResults?.results?.results?.content
 
         val token =
-            contentList?.mapNotNull { it?.continuationItemRenderer }
+            contentList?.mapNotNull { it?.itemSectionRenderer }
+                ?.flatMap { it.contents.orEmpty() }
+                ?.mapNotNull { it?.continuationItemRenderer }
                 ?.firstOrNull()
                 ?.continuationEndpoint?.continuationCommand?.token
-                ?: contentList?.mapNotNull { it?.itemSectionRenderer }
-                    ?.flatMap { it.contents.orEmpty() }
-                    ?.mapNotNull { it?.continuationItemRenderer }
-                    ?.firstOrNull()
-                    ?.continuationEndpoint?.continuationCommand?.token
                 ?: tokenFromEngagementPanels
                 ?: throw Exception("No comment continuation token found for videoId=$videoId")
 
