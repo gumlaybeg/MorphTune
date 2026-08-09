@@ -81,7 +81,7 @@ fun LyricsMenu(
     if (showEditDialog) {
         TextFieldDialog(
             onDismiss = { showEditDialog = false },
-            icon = { Icon(painter = painterResource(R.drawable.edit), contentDescription = null) },
+            icon = { Icon(painterResource(R.drawable.edit), contentDescription = null) },
             title = { Text(text = mediaMetadataProvider().title) },
             initialTextFieldValue = TextFieldValue(lyricsProvider()?.lyrics.orEmpty()),
             singleLine = false,
@@ -372,7 +372,7 @@ fun LyricsMenu(
                         },
                         text = stringResource(R.string.refetch),
                         onClick = {
-                            viewModel.refetchLyrics(mediaMetadataProvider(), lyricsProvider())
+                            viewModel.refetchLyrics(lyricsProvider())
                             onLyricsUpdated()
                             onDismiss()
                         }
