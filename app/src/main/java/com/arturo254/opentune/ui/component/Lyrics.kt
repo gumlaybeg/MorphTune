@@ -1043,20 +1043,18 @@ fun KaraokeBreathingDots(
 
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
-            var lastRealtime = android.os.SystemClock.elapsedRealtime()
-            var currentPos = playerConnection.player.currentPosition.toFloat()
+            var lastPlayerPos = playerConnection.player.currentPosition
+            var lastUpdateTime = System.currentTimeMillis()
             while (isActive) {
                 withFrameMillis { _ ->
-                    val now = android.os.SystemClock.elapsedRealtime()
-                    val delta = now - lastRealtime
-                    lastRealtime = now
-                    currentPos += delta * playerConnection.player.playbackParameters.speed
-                    
-                    val actualPos = playerConnection.player.currentPosition.toFloat()
-                    if (kotlin.math.abs(currentPos - actualPos) > 100) {
-                        currentPos = actualPos
+                    val now = System.currentTimeMillis()
+                    val playerPos = playerConnection.player.currentPosition
+                    if (playerPos != lastPlayerPos) {
+                        lastPlayerPos = playerPos
+                        lastUpdateTime = now
                     }
-                    smoothPosition = currentPos
+                    val elapsed = now - lastUpdateTime
+                    smoothPosition = (lastPlayerPos + elapsed).toFloat()
                 }
             }
         } else {
@@ -1329,21 +1327,15 @@ private fun WordLevelLyrics(
     
     LaunchedEffect(isActiveLine) {
         if (isActiveLine) {
-            var lastRealtime = android.os.SystemClock.elapsedRealtime()
-            var currentPos = playerConnection.player.currentPosition.toFloat()
+            var lastPlayerPos = playerConnection.player.currentPosition
+            var lastUpdateTime = System.currentTimeMillis()
             while (isActive) {
                 withFrameMillis {
-                    val now = android.os.SystemClock.elapsedRealtime()
-                    val delta = now - lastRealtime
-                    lastRealtime = now
-                    if (playerConnection.player.isPlaying) {
-                        currentPos += delta * playerConnection.player.playbackParameters.speed
-                    }
-                    val actualPos = playerConnection.player.currentPosition.toFloat()
-                    if (kotlin.math.abs(currentPos - actualPos) > 100) {
-                        currentPos = actualPos
-                    }
-                    smoothPosition = currentPos.toLong() + lyricsOffset
+                    val now = System.currentTimeMillis()
+                    val playerPos = playerConnection.player.currentPosition
+                    if (playerPos != lastPlayerPos) { lastPlayerPos = playerPos; lastUpdateTime = now }
+                    val elapsed = now - lastUpdateTime
+                    smoothPosition = lastPlayerPos + lyricsOffset + (if (playerConnection.player.isPlaying) elapsed else 0)
                 }
             }
         }
