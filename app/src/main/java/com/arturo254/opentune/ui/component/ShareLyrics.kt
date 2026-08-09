@@ -1,18 +1,13 @@
 package com.arturo254.opentune.ui.component
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,17 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,17 +27,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,180 +43,41 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.arturo254.opentune.R
 import com.arturo254.opentune.models.MediaMetadata
-import kotlinx.coroutines.launch
+
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.toArgb
+import androidx.palette.graphics.Palette
+import coil.ImageLoader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.PaddingValues
 import kotlin.math.min
-import androidx.compose.ui.res.stringResource
-
-// Enums
-enum class FontStyle {
-    REGULAR, BOLD, EXTRA_BOLD
-}
-
-enum class LogoPosition {
-    BOTTOM_LEFT, BOTTOM_RIGHT, TOP_LEFT, TOP_RIGHT, NONE
-}
-
-enum class BackgroundStyle {
-    SOLID, GRADIENT, PATTERN
-}
-
-enum class TextAlignment {
-    LEFT, CENTER, RIGHT
-}
-
-enum class LogoSize {
-    SMALL, MEDIUM, LARGE
-}
-
-enum class CoverArtStyle {
-    ROUNDED, CIRCLE, SQUARE
-}
-
-enum class LyricsStyle {
-    NORMAL, ITALIC, CONDENSED
-}
-
-// Data classes
-data class ImageCustomization(
-    val backgroundColor: Color = Color(0xFF1A1A1A),
-    val textColor: Color = Color.White,
-    val secondaryTextColor: Color = Color.White.copy(alpha = 0.7f),
-    val backgroundStyle: BackgroundStyle = BackgroundStyle.SOLID,
-    val gradientColors: List<Color>? = null,
-    val fontStyle: FontStyle = FontStyle.EXTRA_BOLD,
-    val showCoverArt: Boolean = true,
-    val showSongTitle: Boolean = true,
-    val showArtistName: Boolean = true,
-    val showLogo: Boolean = true,
-    val logoPosition: LogoPosition = LogoPosition.BOTTOM_RIGHT,
-    val logoSize: LogoSize = LogoSize.MEDIUM,
-    val patternOpacity: Float = 0.05f,
-    val cornerRadius: Float = 16f,
-    val isDark: Boolean = true,
-    val textAlignment: TextAlignment = TextAlignment.CENTER,
-    val padding: Float = 24f,
-    val textShadowEnabled: Boolean = true,
-    val borderEnabled: Boolean = false,
-    val borderColor: Color = Color.White.copy(alpha = 0.3f),
-    val borderWidth: Float = 2f,
-    val coverArtStyle: CoverArtStyle = CoverArtStyle.ROUNDED,
-    val lyricsStyle: LyricsStyle = LyricsStyle.NORMAL,
-    val accentColor: Color? = null,
-    val showAccentLine: Boolean = false,
-    val spacingBetweenElements: Float = 16f,
-    val lyricsLineSpacing: Float = 1.3f
-)
-
-data class ColorPreset(
-    val name: String,
-    val customization: ImageCustomization
-)
-
-// Presets unificados
-val colorPresets = listOf(
-    ColorPreset(
-        "Dark",
-        ImageCustomization(
-            backgroundColor = Color(0xFF1A1A1A),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.7f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Light",
-        ImageCustomization(
-            backgroundColor = Color(0xFFF5F5F5),
-            textColor = Color.Black,
-            secondaryTextColor = Color.Black.copy(alpha = 0.7f),
-            isDark = false
-        )
-    ),
-    ColorPreset(
-        "Blue",
-        ImageCustomization(
-            backgroundColor = Color(0xFF1E3A8A),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.8f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Purple",
-        ImageCustomization(
-            backgroundColor = Color(0xFF4C1D95),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.8f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Red",
-        ImageCustomization(
-            backgroundColor = Color(0xFF991B1B),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.8f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Green",
-        ImageCustomization(
-            backgroundColor = Color(0xFF065F46),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.8f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Gradient Blue",
-        ImageCustomization(
-            backgroundStyle = BackgroundStyle.GRADIENT,
-            gradientColors = listOf(
-                Color(0xFF1E3A8A),
-                Color(0xFF3B82F6),
-                Color(0xFF60A5FA)
-            ),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.9f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Gradient Purple",
-        ImageCustomization(
-            backgroundStyle = BackgroundStyle.GRADIENT,
-            gradientColors = listOf(
-                Color(0xFF4C1D95),
-                Color(0xFF7C3AED),
-                Color(0xFFA78BFA)
-            ),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.9f),
-            isDark = true
-        )
-    ),
-    ColorPreset(
-        "Gradient Sunset",
-        ImageCustomization(
-            backgroundStyle = BackgroundStyle.GRADIENT,
-            gradientColors = listOf(
-                Color(0xFFF59E0B),
-                Color(0xFFEF4444),
-                Color(0xFF8B5CF6)
-            ),
-            textColor = Color.White,
-            secondaryTextColor = Color.White.copy(alpha = 0.9f),
-            isDark = true
-        )
-    )
-)
-
+import androidx.core.graphics.drawable.toBitmap
 
 @Composable
 fun rememberAdjustedFontSize(
@@ -252,26 +94,46 @@ fun rememberAdjustedFontSize(
 
     var calculatedFontSize by remember(text, maxWidth, maxHeight, style, density) {
         val initialSize = when {
-            text.length < 30 -> (initialFontSize.value * 1.1f).sp
-            text.length < 60 -> initialFontSize
-            text.length < 120 -> (initialFontSize.value * 0.85f).sp
-            text.length < 200 -> (initialFontSize.value * 0.7f).sp
-            else -> (initialFontSize.value * 0.6f).sp
+            text.length < 50 -> initialFontSize
+            text.length < 100 -> (initialFontSize.value * 0.8f).sp
+            text.length < 200 -> (initialFontSize.value * 0.6f).sp
+            else -> (initialFontSize.value * 0.5f).sp
         }
         mutableStateOf(initialSize)
     }
 
     LaunchedEffect(key1 = text, key2 = maxWidth, key3 = maxHeight) {
-        val targetWidthPx = with(density) { maxWidth.toPx() * 0.85f }
-        val targetHeightPx = with(density) { maxHeight.toPx() * 0.8f }
-
+        val targetWidthPx = with(density) { maxWidth.toPx() * 0.92f }
+        val targetHeightPx = with(density) { maxHeight.toPx() * 0.92f }
         if (text.isBlank()) {
             calculatedFontSize = minFontSize
             return@LaunchedEffect
         }
 
+        if (text.length < 20) {
+            val largerSize = (initialFontSize.value * 1.1f).sp
+            val result = measurer.measure(
+                text = AnnotatedString(text),
+                style = style.copy(fontSize = largerSize)
+            )
+            if (result.size.width <= targetWidthPx && result.size.height <= targetHeightPx) {
+                calculatedFontSize = largerSize
+                return@LaunchedEffect
+            }
+        } else if (text.length < 30) {
+            val largerSize = (initialFontSize.value * 0.9f).sp
+            val result = measurer.measure(
+                text = AnnotatedString(text),
+                style = style.copy(fontSize = largerSize)
+            )
+            if (result.size.width <= targetWidthPx && result.size.height <= targetHeightPx) {
+                calculatedFontSize = largerSize
+                return@LaunchedEffect
+            }
+        }
+
         var minSize = minFontSize.value
-        var maxSize = (initialFontSize.value * 1.2f)
+        var maxSize = initialFontSize.value
         var bestFit = minSize
         var iterations = 0
 
@@ -282,12 +144,7 @@ fun rememberAdjustedFontSize(
 
             val result = measurer.measure(
                 text = AnnotatedString(text),
-                style = style.copy(
-                    fontSize = midSizeSp,
-                    fontWeight = FontWeight.ExtraBold,
-                    lineHeight = (midSize * 1.3f).sp,
-                    letterSpacing = 0.3.sp
-                )
+                style = style.copy(fontSize = midSizeSp)
             )
 
             if (result.size.width <= targetWidthPx && result.size.height <= targetHeightPx) {
@@ -313,10 +170,15 @@ fun LyricsImageCard(
     onCustomizationChange: (ImageCustomization) -> Unit = {},
     onSaveImage: () -> Unit = {},
     showControls: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    darkBackground: Boolean = true,
+    backgroundColor: Color? = null,
+    backgroundStyle: LyricsBackgroundStyle = LyricsBackgroundStyle.SOLID,
+    textColor: Color? = null,
+    secondaryTextColor: Color? = null,
+    textAlign: TextAlign = TextAlign.Center
 ) {
     var isGenerating by remember { mutableStateOf(false) }
-    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -365,7 +227,7 @@ fun LyricsImageCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModernControlsSection(
+fun ModernControlsSection(
     selectedCustomization: ImageCustomization,
     isGenerating: Boolean,
     onSaveImage: () -> Unit,
@@ -575,9 +437,9 @@ fun LyricsImageCardPreview(
                                             letterSpacing = (-0.5).sp
                                         ),
                                         fontWeight = when (customization.fontStyle) {
-                                            FontStyle.REGULAR -> FontWeight.Bold
-                                            FontStyle.BOLD -> FontWeight.ExtraBold
-                                            FontStyle.EXTRA_BOLD -> FontWeight.Black
+                                            CustomFontStyle.REGULAR -> FontWeight.Bold
+                                            CustomFontStyle.BOLD -> FontWeight.ExtraBold
+                                            CustomFontStyle.EXTRA_BOLD -> FontWeight.Black
                                         },
                                         color = customization.textColor,
                                         maxLines = 2,
@@ -619,9 +481,9 @@ fun LyricsImageCardPreview(
                             .weight(1f)
                             .padding(vertical = customization.spacingBetweenElements.dp),
                         contentAlignment = when (customization.textAlignment) {
-                            TextAlignment.LEFT -> Alignment.CenterStart
-                            TextAlignment.CENTER -> Alignment.Center
-                            TextAlignment.RIGHT -> Alignment.CenterEnd
+                            CustomTextAlignment.LEFT -> Alignment.CenterStart
+                            CustomTextAlignment.CENTER -> Alignment.Center
+                            CustomTextAlignment.RIGHT -> Alignment.CenterEnd
                         }
                     ) {
                         val textMeasurer = rememberTextMeasurer()
@@ -632,24 +494,24 @@ fun LyricsImageCardPreview(
 
                         val lyricsWeight = when (customization.lyricsStyle) {
                             LyricsStyle.NORMAL -> when (customization.fontStyle) {
-                                FontStyle.REGULAR -> FontWeight.Bold
-                                FontStyle.BOLD -> FontWeight.ExtraBold
-                                FontStyle.EXTRA_BOLD -> FontWeight.Black
+                                CustomFontStyle.REGULAR -> FontWeight.Bold
+                                CustomFontStyle.BOLD -> FontWeight.ExtraBold
+                                CustomFontStyle.EXTRA_BOLD -> FontWeight.Black
                             }
                             LyricsStyle.ITALIC -> FontWeight.Bold
                             LyricsStyle.CONDENSED -> when (customization.fontStyle) {
-                                FontStyle.REGULAR -> FontWeight.SemiBold
-                                FontStyle.BOLD -> FontWeight.Bold
-                                FontStyle.EXTRA_BOLD -> FontWeight.ExtraBold
+                                CustomFontStyle.REGULAR -> FontWeight.SemiBold
+                                CustomFontStyle.BOLD -> FontWeight.Bold
+                                CustomFontStyle.EXTRA_BOLD -> FontWeight.ExtraBold
                             }
                         }
 
                         Text(
                             text = lyricText,
                             textAlign = when (customization.textAlignment) {
-                                TextAlignment.LEFT -> TextAlign.Left
-                                TextAlignment.CENTER -> TextAlign.Center
-                                TextAlignment.RIGHT -> TextAlign.Right
+                                CustomTextAlignment.LEFT -> TextAlign.Left
+                                CustomTextAlignment.CENTER -> TextAlign.Center
+                                CustomTextAlignment.RIGHT -> TextAlign.Right
                             },
                             fontSize = optimalFontSize,
                             fontWeight = lyricsWeight,
@@ -659,7 +521,7 @@ fun LyricsImageCardPreview(
                             letterSpacing = if (customization.lyricsStyle == LyricsStyle.CONDENSED) (-0.5).sp else 0.3.sp,
                             style = if (customization.textShadowEnabled) {
                                 TextStyle(
-                                    shadow = Shadow(
+                                    shadow = androidx.compose.ui.graphics.Shadow(
                                         color = customization.backgroundColor.copy(alpha = 0.5f),
                                         offset = Offset(2f, 2f),
                                         blurRadius = 4f
@@ -735,7 +597,7 @@ fun ColorPresetSelector(
 }
 
 @Composable
-private fun ColorPresetItem(
+fun ColorPresetItem(
     preset: ColorPreset,
     isSelected: Boolean,
     onClick: () -> Unit,
