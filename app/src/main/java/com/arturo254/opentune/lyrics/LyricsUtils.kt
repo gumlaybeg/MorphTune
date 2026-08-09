@@ -117,7 +117,7 @@ object LyricsUtils {
         "०" to "0", "१" to "1", "२" to "2", "३" to "3", "४" to "4",
         "५" to "5", "६" to "6", "७" to "7", "८" to "8", "९" to "9",
         "ॐ" to "Om", "ऽ" to "",
-        "क़" to "q", "ख़" to "kh", "ग़" to "g", "ज़" to "z", "ड़" to "r", "ढ़" to "rh", "फ़" to "f", "य़" to "y",
+        "क़" to "q", "ख़" to "kh", "ग़" to "g", "ज़" to "z", "ड़" to "r", "ढ़" to "rh", "ਫ਼" to "f", "य़" to "y",
         "क\u093C" to "q", "ख\u093C" to "kh", "ग\u093C" to "g", "ज\u093C" to "z", "ड\u093C" to "r", "ढ\u093C" to "rh", "फ\u093C" to "f", "य\u093C" to "y"
     )
 
@@ -661,32 +661,41 @@ object LyricsUtils {
         lines: List<LyricsEntry>,
         position: Long,
     ): Set<Int> {
-        val active = mutableSetOf<Int>()
-        val hasWordTimings = lines.any { !it.words.isNullOrEmpty() }
+        if (lines.isEmpty()) return emptySet()
+        val threshold = 100L
+        val targetTime = position + threshold
 
-        for (index in lines.indices) {
-            val line = lines[index]
-            if (line.time > position) break
+        val activeIndices = mutableSetOf<Int>()
 
-            val lineEndMs: Long = if (!line.words.isNullOrEmpty()) {
-                (line.words.last().endTime * 1000).toLong()
+        // 1. Find active main line (latest non-background line with time <= targetTime)
+        var activeMainIndex = -1
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.time <= targetTime) {
+                if (!line.isBackground) {
+                    activeMainIndex = i
+                }
             } else {
-                if (index + 1 < lines.size) lines[index + 1].time else Long.MAX_VALUE
+                break
             }
+        }
+        if (activeMainIndex != -1) {
+            activeIndices.add(activeMainIndex)
+        }
 
-            if (position <= lineEndMs) {
-                active.add(index)
+        // 2. Find active background line(s) (background lines that have started and haven't ended)
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.isBackground && line.time <= targetTime) {
+                val nextLineTime = if (i + 1 < lines.size) lines[i + 1].time else (line.time + 6000L)
+                val maxEndTime = kotlin.math.min(nextLineTime, line.time + 8000L)
+                if (targetTime < maxEndTime) {
+                    activeIndices.add(i)
+                }
             }
         }
 
-        if (!hasWordTimings && active.size > 1) {
-            val mainActive = active.filter { lines[it].isBackground == false }
-            if (mainActive.size > 1) {
-                val maxTime = mainActive.maxOf { lines[it].time }
-                active.removeAll { it in mainActive && lines[it].time < maxTime }
-            }
-        }
-        return active
+        return activeIndices
     }
 
     suspend fun romanizeJapanese(text: String): String = text // Stubbed for integration
