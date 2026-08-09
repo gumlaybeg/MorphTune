@@ -88,6 +88,7 @@ import kotlin.math.min
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.GlobalScope
 
 @Composable
 fun rememberAdjustedFontSize(
@@ -203,8 +204,8 @@ fun LyricsImageCard(
                 onSaveImage = {
                     isGenerating = true
                     onSaveImage()
-                    kotlinx.coroutines.GlobalScope.launch {
-                        kotlinx.coroutines.delay(1500)
+                    GlobalScope.launch(Dispatchers.Main) {
+                        delay(1500)
                         isGenerating = false
                     }
                 },
