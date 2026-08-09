@@ -1,19 +1,40 @@
 package com.arturo254.opentune.ui.screens.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.arturo254.opentune.NotificationPermissionPreference
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.ContentCountryKey
 import com.arturo254.opentune.constants.ContentLanguageKey
 import com.arturo254.opentune.constants.CountryCodeToName
+import com.arturo254.opentune.constants.DefaultLyricsProviderPriority
 import com.arturo254.opentune.constants.EnableKugouKey
 import com.arturo254.opentune.constants.EnableLrcLibKey
 import com.arturo254.opentune.constants.EnableLyricsPlusKey
@@ -21,18 +42,19 @@ import com.arturo254.opentune.constants.EnablePaxsenixKey
 import com.arturo254.opentune.constants.HideExplicitKey
 import com.arturo254.opentune.constants.HistoryDuration
 import com.arturo254.opentune.constants.LanguageCodeToName
-import com.arturo254.opentune.constants.PreferredLyricsProvider
-import com.arturo254.opentune.constants.PreferredLyricsProviderKey
+import com.arturo254.opentune.constants.LyricsProviderPriorityKey
 import com.arturo254.opentune.constants.ProxyEnabledKey
 import com.arturo254.opentune.constants.ProxyTypeKey
 import com.arturo254.opentune.constants.ProxyUrlKey
 import com.arturo254.opentune.constants.QuickPicks
 import com.arturo254.opentune.constants.QuickPicksKey
+import com.arturo254.opentune.constants.RomanizeLyricsKey
 import com.arturo254.opentune.constants.SYSTEM_DEFAULT
 import com.arturo254.opentune.constants.TopSize
+import com.arturo254.opentune.ui.component.DefaultDialog
 import com.arturo254.opentune.ui.component.EditTextPreference
-import com.arturo254.opentune.ui.component.EnumListPreference
 import com.arturo254.opentune.ui.component.ListPreference
+import com.arturo254.opentune.ui.component.PreferenceEntry
 import com.arturo254.opentune.ui.component.SettingsGeneralCategory
 import com.arturo254.opentune.ui.component.SettingsPage
 import com.arturo254.opentune.ui.component.SliderPreference
@@ -40,6 +62,8 @@ import com.arturo254.opentune.ui.component.SwitchPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
 import java.net.Proxy
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,10 +123,68 @@ fun ContentSettings(
         key = EnablePaxsenixKey,
         defaultValue = true
     )
-    val (preferredProvider, onPreferredProviderChange) = rememberEnumPreference(
-        key = PreferredLyricsProviderKey,
-        defaultValue = PreferredLyricsProvider.LRCLIB
+    val (romanizeLyrics, onRomanizeLyricsChange) = rememberPreference(
+        key = RomanizeLyricsKey,
+        defaultValue = false
     )
+    val (providerPriority, onProviderPriorityChange) = rememberPreference(
+        key = LyricsProviderPriorityKey,
+        defaultValue = DefaultLyricsProviderPriority
+    )
+
+    var showPriorityDialog by remember { mutableStateOf(false) }
+
+    if (showPriorityDialog) {
+        var currentOrder by remember { mutableStateOf(providerPriority.split(",")) }
+        val listState = rememberLazyListState()
+        val reorderableState = rememberReorderableLazyListState(
+            lazyListState = listState,
+            onMove = { from, to ->
+                currentOrder = currentOrder.toMutableList().apply {
+                    add(to.index, removeAt(from.index))
+                }
+            }
+        )
+
+        DefaultDialog(
+            onDismiss = { showPriorityDialog = false },
+            title = { Text("Lyrics Provider Priority") },
+            buttons = {
+                TextButton(onClick = { showPriorityDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                TextButton(onClick = {
+                    onProviderPriorityChange(currentOrder.joinToString(","))
+                    showPriorityDialog = false
+                }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            }
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.heightIn(max = 300.dp)
+            ) {
+                items(currentOrder, key = { it }) { provider ->
+                    ReorderableItem(state = reorderableState, key = provider) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp, horizontal = 8.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                                .draggableHandle(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(painterResource(R.drawable.drag_handle), null)
+                            Spacer(Modifier.width(16.dp))
+                            Text(provider, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     SettingsPage(
         title = stringResource(R.string.content),
@@ -179,19 +261,17 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.lyrics),
             items = listOf(
-                {EnumListPreference(
-                    title = { Text("Preferred Lyrics Provider") },
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    selectedValue = preferredProvider,
-                    onValueSelected = onPreferredProviderChange,
-                    valueText = {
-                        when (it) {
-                            PreferredLyricsProvider.LRCLIB -> "LrcLib"
-                            PreferredLyricsProvider.KUGOU -> "KuGou"
-                            PreferredLyricsProvider.LYRICS_PLUS -> "LyricsPlus"
-                            PreferredLyricsProvider.PAXSENIX -> "Paxsenix"
-                        }
-                    }
+                {PreferenceEntry(
+                    title = { Text("Lyrics Provider Priority") },
+                    description = providerPriority.replace(",", " > "),
+                    icon = { Icon(painterResource(R.drawable.sort), null) },
+                    onClick = { showPriorityDialog = true }
+                )},
+                {SwitchPreference(
+                    title = { Text("Auto-Romanize Lyrics") },
+                    icon = { Icon(painterResource(R.drawable.translate), null) },
+                    checked = romanizeLyrics,
+                    onCheckedChange = onRomanizeLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text("Enable LrcLib") },
