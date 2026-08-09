@@ -666,16 +666,27 @@ object LyricsUtils {
         val targetTime = position + threshold
 
         val activeIndices = mutableSetOf<Int>()
-        var latestMainIndex = -1
+        
+        // 1. Build map of background lines to their closest main line
         val bgToMainMap = mutableMapOf<Int, Int>()
+        val mainLineIndices = lines.indices.filter { !lines[it].isBackground }
+        for (i in lines.indices) {
+            if (lines[i].isBackground) {
+                val bgTime = lines[i].time
+                val closestMain = mainLineIndices.minByOrNull { kotlin.math.abs(lines[it].time - bgTime) }
+                if (closestMain != null) {
+                    bgToMainMap[i] = closestMain
+                }
+            }
+        }
+
+        var latestMainIndex = -1
 
         for (i in lines.indices) {
             val line = lines[i]
             if (line.time <= targetTime) {
                 if (!line.isBackground) {
                     latestMainIndex = i
-                } else {
-                    bgToMainMap[i] = latestMainIndex
                 }
 
                 if (line.words != null && line.words.isNotEmpty()) {
@@ -702,18 +713,19 @@ object LyricsUtils {
             }
         }
 
+        // Add closest main line for any active background line
         val mainLinesToActivate = mutableSetOf<Int>()
         for (idx in activeIndices) {
             if (lines[idx].isBackground) {
                 val mainIdx = bgToMainMap[idx]
-                if (mainIdx != null && mainIdx != -1) {
+                if (mainIdx != null) {
                     mainLinesToActivate.add(mainIdx)
                 }
             }
         }
         activeIndices.addAll(mainLinesToActivate)
 
-        // Always keep the latest main line active if nothing else is active
+        // Always keep the latest main line active if no main line is currently active
         if (activeIndices.none { !lines[it].isBackground } && latestMainIndex != -1) {
             activeIndices.add(latestMainIndex)
         }
