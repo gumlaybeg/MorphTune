@@ -18,7 +18,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import timber.log.Timber
@@ -29,7 +28,7 @@ import kotlin.math.abs
 // --- Models ---
 
 @Serializable
-private data class SearchResult(
+private data class PaxsenixSearchResult(
     val id: String,
     val songName: String? = null,
     val trackName: String? = null,
@@ -43,19 +42,19 @@ private data class SearchResult(
 }
 
 @Serializable
-private data class LyricsContent(
+private data class PaxsenixLyricsContent(
     val timestamp: Long,
     val endtime: Long,
     val duration: Long,
     val structure: String? = null,
-    val text: List<LyricText> = emptyList(),
+    val text: List<PaxsenixLyricText> = emptyList(),
     val background: Boolean = false,
-    val backgroundText: List<LyricText> = emptyList(),
+    val backgroundText: List<PaxsenixLyricText> = emptyList(),
     val oppositeTurn: Boolean = false
 )
 
 @Serializable
-private data class LyricText(
+private data class PaxsenixLyricText(
     val text: String,
     val timestamp: Long,
     val endtime: Long,
@@ -64,15 +63,15 @@ private data class LyricText(
 )
 
 @Serializable
-private data class LyricsMetadata(
+private data class PaxsenixLyricsMetadata(
     val songwriters: List<String> = emptyList()
 )
 
 @Serializable
-private data class LyricsResponse(
+private data class PaxsenixLyricsResponse(
     val type: String? = null,
-    val metadata: LyricsMetadata? = null,
-    val content: List<LyricsContent> = emptyList(),
+    val metadata: PaxsenixLyricsMetadata? = null,
+    val content: List<PaxsenixLyricsContent> = emptyList(),
     val elrc: String? = null,
     val elrcMultiPerson: String? = null,
     val ttmlContent: String? = null,
@@ -80,55 +79,55 @@ private data class LyricsResponse(
 )
 
 @Serializable
-private data class AppleMusicSearchResponse(
-    val results: AppleMusicResults,
-    val resources: AppleMusicResources? = null
+private data class PaxsenixAppleMusicSearchResponse(
+    val results: PaxsenixAppleMusicResults,
+    val resources: PaxsenixAppleMusicResources? = null
 )
 
 @Serializable
-private data class AppleMusicResults(
-    val songs: AppleMusicSongsResult? = null
+private data class PaxsenixAppleMusicResults(
+    val songs: PaxsenixAppleMusicSongsResult? = null
 )
 
 @Serializable
-private data class AppleMusicSongsResult(
-    val data: List<AppleMusicSongData> = emptyList()
+private data class PaxsenixAppleMusicSongsResult(
+    val data: List<PaxsenixAppleMusicSongData> = emptyList()
 )
 
 @Serializable
-private data class AppleMusicSongData(
+private data class PaxsenixAppleMusicSongData(
     val id: String,
     val type: String
 )
 
 @Serializable
-private data class AppleMusicResources(
-    val songs: Map<String, AppleMusicSongDetail>? = null
+private data class PaxsenixAppleMusicResources(
+    val songs: Map<String, PaxsenixAppleMusicSongDetail>? = null
 )
 
 @Serializable
-private data class AppleMusicSongDetail(
-    val attributes: AppleMusicSongAttributes
+private data class PaxsenixAppleMusicSongDetail(
+    val attributes: PaxsenixAppleMusicSongAttributes
 )
 
 @Serializable
-private data class AppleMusicSongAttributes(
+private data class PaxsenixAppleMusicSongAttributes(
     val name: String,
     val artistName: String,
     val albumName: String? = null,
-    val artwork: AppleMusicArtwork? = null,
+    val artwork: PaxsenixAppleMusicArtwork? = null,
     val url: String? = null,
     val durationInMillis: Long? = null
 )
 
 @Serializable
-private data class AppleMusicArtwork(
+private data class PaxsenixAppleMusicArtwork(
     val url: String
 )
 
 // --- TTML Parser ---
 
-object TTMLParser {
+object PaxsenixTTMLParser {
     data class Line(
         val startMs: Long,
         val endMs: Long,
@@ -239,7 +238,7 @@ object TTMLParser {
 
 // --- Paxsenix API Engine ---
 
-object Paxsenix {
+object PaxsenixEngine {
     private const val APPLE_MUSIC_API_BASE = "https://amp-api.music.apple.com/v1/catalog/us"
 
     private val httpClient by lazy {
@@ -309,7 +308,7 @@ object Paxsenix {
         return cleaned.trim()
     }
 
-    private suspend fun search(query: String): List<SearchResult> = runCatching {
+    private suspend fun search(query: String): List<PaxsenixSearchResult> = runCatching {
         Timber.d("Searching Apple Music for: $query")
         val token = tokenManager.getToken()
         searchWithToken(token, query)
@@ -328,7 +327,7 @@ object Paxsenix {
         emptyList()
     }
 
-    private suspend fun searchWithToken(token: String, query: String): List<SearchResult> {
+    private suspend fun searchWithToken(token: String, query: String): List<PaxsenixSearchResult> {
         val encodedQuery = URLEncoder.encode(query, "UTF-8")
 
         val response = httpClient.get("$APPLE_MUSIC_API_BASE/search?term=$encodedQuery&types=songs&limit=25&l=en-US&platform=web&format[resources]=map&include[songs]=artists&extend=artistUrl") {
@@ -342,7 +341,7 @@ object Paxsenix {
         }
 
         val body = try {
-            appleJson.decodeFromString<AppleMusicSearchResponse>(response.bodyAsText())
+            appleJson.decodeFromString<PaxsenixAppleMusicSearchResponse>(response.bodyAsText())
         } catch (e: Exception) {
             Timber.e(e, "Failed to parse Apple Music search response")
             return emptyList()
@@ -353,7 +352,7 @@ object Paxsenix {
         return songs.mapNotNull { songData ->
             val detail = body.resources?.songs?.get(songData.id) ?: return@mapNotNull null
             val attr = detail.attributes
-            SearchResult(
+            PaxsenixSearchResult(
                 id = songData.id,
                 trackName = attr.name,
                 artistName = attr.artistName,
@@ -381,7 +380,7 @@ object Paxsenix {
             }
         }
 
-        var allResults: List<Pair<SearchResult, Double>> = emptyList()
+        var allResults: List<Pair<PaxsenixSearchResult, Double>> = emptyList()
 
         for (query in searchQueries) {
             if (allResults.isEmpty()) {
@@ -435,11 +434,11 @@ object Paxsenix {
     }
 
     private fun scoreAndFilterResults(
-        results: List<SearchResult>,
+        results: List<PaxsenixSearchResult>,
         title: String,
         artist: String,
         duration: Int
-    ): List<Pair<SearchResult, Double>> {
+    ): List<Pair<PaxsenixSearchResult, Double>> {
         val durationMs = duration * 1000
         val cleanupRegex = Regex("""\s*\(.*?\)|\s*\[.*?\]""")
 
@@ -498,7 +497,7 @@ object Paxsenix {
     private suspend fun fetchLyricsForTrack(id: String): Result<String> = runCatching {
         val response = httpClient.get("/apple-music/lyrics") {
             parameter("id", id)
-        }.body<LyricsResponse>()
+        }.body<PaxsenixLyricsResponse>()
 
         if (!response.ttmlContent.isNullOrBlank()) {
             val lrc = convertTTMLToAppFormat(response.ttmlContent)
@@ -567,8 +566,8 @@ object Paxsenix {
 
     private fun convertTTMLToAppFormat(ttml: String): String {
         return try {
-            val parsedLines = TTMLParser.parseTTML(ttml)
-            TTMLParser.toLRC(parsedLines)
+            val parsedLines = PaxsenixTTMLParser.parseTTML(ttml)
+            PaxsenixTTMLParser.toLRC(parsedLines)
         } catch (e: Exception) {
             Timber.e(e, "TTML conversion failed: ${e.message}")
             ""
@@ -625,5 +624,5 @@ object PaxsenixLyricsProvider : LyricsProvider {
         title: String,
         artist: String,
         duration: Int,
-    ): Result<String> = Paxsenix.getLyrics(title, artist, duration)
+    ): Result<String> = PaxsenixEngine.getLyrics(title, artist, duration)
 }
