@@ -117,7 +117,7 @@ object LyricsUtils {
         "०" to "0", "१" to "1", "२" to "2", "३" to "3", "४" to "4",
         "५" to "5", "६" to "6", "७" to "7", "८" to "8", "९" to "9",
         "ॐ" to "Om", "ऽ" to "",
-        "क़" to "q", "ख़" to "kh", "ग़" to "g", "ज़" to "z", "ड़" to "r", "ढ़" to "rh", "ਫ਼" to "f", "य़" to "y",
+        "क़" to "q", "ख़" to "kh", "ग़" to "g", "ਜ਼" to "z", "ੜ" to "r", "ਢ\u093C" to "rh", "ਫ਼" to "f", "य़" to "y",
         "क\u093C" to "q", "ख\u093C" to "kh", "ग\u093C" to "g", "ज\u093C" to "z", "ड\u093C" to "r", "ढ\u093C" to "rh", "फ\u093C" to "f", "य\u093C" to "y"
     )
 
@@ -146,23 +146,21 @@ object LyricsUtils {
         "Њ" to "Ny", "О" to "O", "П" to "P", "Р" to "R", "С" to "S", "Т" to "T",
         "Ћ" to "Ć", "У" to "U", "Ў" to "Ŭ", "Ф" to "F", "Х" to "Kh", "Ц" to "Ts",
         "Ч" to "Ch", "Џ" to "Dž", "Ш" to "Sh", "Щ" to "Shch", "Ъ" to "ʺ", "Ы" to "Y",
-        "Ь" to "ʹ", "Э" to "E", "Ю" to "Yu", "Я" to "Ya",
-        "а" to "a", "б" to "b", "в" to "v", "г" to "g", "ґ" to "g", "д" to "d",
-        "ѓ" to "ǵ", "ђ" to "đ", "е" to "e", "ё" to "yo", "є" to "ye", "ж" to "zh",
-        "з" to "z", "ѕ" to "dz", "и" to "i", "і" to "i", "ї" to "yi", "й" to "y",
-        "ј" to "y", "к" to "k", "л" to "l", "љ" to "ly", "м" to "m", "н" to "n",
-        "њ" to "ny", "о" to "o", "п" to "p", "р" to "r", "с" to "s", "т" to "t",
-        "ћ" to "ć", "у" to "u", "ў" to "ŭ", "ф" to "f", "х" to "kh", "ц" to "ts",
-        "ч" to "ch", "џ" to "dž", "ш" to "sh", "щ" to "shch", "ъ" to "ʺ", "ы" to "y",
-        "ь" to "ʹ", "э" to "e", "ю" to "yu", "я" to "ya",
-        "ѡ" to "o", "ѣ" to "ya", "ѥ" to "ye", "ѧ" to "ya", "ѩ" to "ya",
-        "ѫ" to "u", "ѭ" to "yu", "ѯ" to "ks", "ѱ" to "ps", "ѳ" to "f",
-        "ѵ" to "i", "ѷ" to "i", "ғ" to "gh", "ҕ" to "g", "җ" to "zh",
-        "ҙ" to "dz", "қ" to "q", "ҝ" to "k", "ҟ" to "k", "ҡ" to "k",
-        "ң" to "ng", "ҥ" to "ng", "ҧ" to "p", "ҩ" to "o", "ҫ" to "s",
-        "ҭ" to "t", "ү" to "u", "ұ" to "u", "ҳ" to "kh", "ҵ" to "ts",
-        "ҷ" to "ch", "ҹ" to "ch", "һ" to "h", "ҽ" to "ch", "ҿ" to "ch",
-        "ќ" to "ḱ", "ө" to "ö"
+        "Ь" to "ʹ", "Э" to "E", "Ю" to "Yu", "Я" to "Ya", "а" to "a", "б" to "b",
+        "в" to "v", "г" to "g", "ґ" to "g", "д" to "d", "ѓ" to "ǵ", "ђ" to "đ",
+        "е" to "e", "ё" to "yo", "є" to "ye", "ж" to "zh", "з" to "z", "ѕ" to "dz",
+        "и" to "i", "і" to "i", "ї" to "yi", "й" to "y", "ј" to "y", "к" to "k",
+        "л" to "l", "љ" to "ly", "м" to "m", "н" to "n", "њ" to "ny", "о" to "o",
+        "п" to "p", "р" to "r", "с" to "s", "т" to "t", "ћ" to "ć", "у" to "u",
+        "ў" to "ŭ", "ф" to "f", "х" to "kh", "ц" to "ts", "ч" to "ch", "џ" to "dž",
+        "ш" to "sh", "щ" to "shch", "ъ" to "ʺ", "ы" to "y", "ь" to "ʹ", "э" to "e",
+        "ю" to "yu", "я" to "ya", "ѡ" to "o", "ѣ" to "ya", "ѥ" to "ye", "ѧ" to "ya",
+        "ѩ" to "ya", "ѫ" to "u", "ѭ" to "yu", "ѯ" to "ks", "ѱ" to "ps", "ѳ" to "f",
+        "ѵ" to "i", "ѷ" to "i", "ғ" to "gh", "ҕ" to "g", "җ" to "zh", "ҙ" to "dz",
+        "қ" to "q", "ҝ" to "k", "ҟ" to "k", "ҡ" to "k", "ң" to "ng", "ҥ" to "ng",
+        "ҧ" to "p", "ҩ" to "o", "ҫ" to "s", "ҭ" to "t", "ү" to "u", "ұ" to "u",
+        "ҳ" to "kh", "ҵ" to "ts", "ҷ" to "ch", "ҹ" to "ch", "һ" to "h", "ҽ" to "ch",
+        "ҿ" to "ch", "ќ" to "ḱ", "ө" to "ö"
     )
 
     private val RUSSIAN_ROMAJI_MAP: Map<String, String> = mapOf(
@@ -170,25 +168,20 @@ object LyricsUtils {
     )
 
     private val UKRAINIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Г" to "H", "г" to "h",
-        "Ґ" to "G", "ґ" to "g",
-        "Є" to "Ye", "є" to "ye",
-        "І" to "I", "і" to "i",
-        "Ї" to "Yi", "ї" to "yi"
+        "Г" to "H", "г" to "h", "Ґ" to "G", "ґ" to "g", "Є" to "Ye", "є" to "ye",
+        "І" to "I", "і" to "i", "Ї" to "Yi", "ї" to "yi"
     )
 
     private val SERBIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Ж" to "Ž", "Љ" to "Lj", "Њ" to "Nj", "Ц" to "C", "Ч" to "Č",
-        "Џ" to "Dž", "Ш" to "Š", "Х" to "H",
-        "ж" to "ž", "љ" to "lj", "њ" to "nj", "ц" to "c", "ч" to "č",
-        "џ" to "dž", "ш" to "š", "х" to "h"
+        "Ж" to "Ž", "Љ" to "Lj", "Њ" to "Nj", "Ц" to "C", "Ч" to "Č", "Џ" to "Dž",
+        "Ш" to "Š", "Х" to "H", "ж" to "ž", "љ" to "lj", "њ" to "nj", "ц" to "c",
+        "ч" to "č", "џ" to "dž", "ш" to "š", "х" to "h"
     )
 
     private val BULGARIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Ж" to "Zh", "Ц" to "Ts", "Ч" to "Ch", "Ш" to "Sh", "Щ" to "Sht",
-        "Ъ" to "A", "Ь" to "Y", "Ю" to "Yu", "Я" to "Ya",
-        "ж" to "zh", "ц" to "ts", "ч" to "ch", "ш" to "sh", "щ" to "sht",
-        "ъ" to "a", "ь" to "y", "ю" to "yu", "я" to "ya"
+        "Ж" to "Zh", "Ц" to "Ts", "Ч" to "Ch", "Ш" to "Sh", "Щ" to "Sht", "Ъ" to "A",
+        "Ь" to "Y", "Ю" to "Yu", "Я" to "Ya", "ж" to "zh", "ц" to "ts", "ч" to "ch",
+        "ш" to "sh", "щ" to "sht", "ъ" to "a", "ь" to "y", "ю" to "yu", "я" to "ya"
     )
 
     private val BELARUSIAN_ROMAJI_MAP: Map<String, String> = mapOf(
@@ -200,30 +193,27 @@ object LyricsUtils {
     )
 
     private val MACEDONIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Ѓ" to "Gj", "Ѕ" to "Dz", "И" to "I", "Ј" to "J", "Љ" to "Lj",
-        "Њ" to "Nj", "Ќ" to "Kj", "Џ" to "Dž", "Ч" to "Č", "Ш" to "Sh",
-        "Ж" to "Zh", "Ц" to "C", "Х" to "H",
-        "ѓ" to "gj", "ѕ" to "dz", "и" to "i", "ј" to "j", "љ" to "lj",
-        "њ" to "nj", "ќ" to "kj", "џ" to "dž", "ч" to "č", "ш" to "sh",
-        "ж" to "zh", "ц" to "c", "х" to "h"
+        "Ѓ" to "Gj", "Ѕ" to "Dz", "И" to "I", "Ј" to "J", "Љ" to "Lj", "Њ" to "Nj",
+        "Ќ" to "Kj", "Џ" to "Dž", "Ч" to "Č", "Ш" to "Sh", "Ж" to "Zh", "Ц" to "C",
+        "Х" to "H", "ѓ" to "gj", "ѕ" to "dz", "и" to "i", "ј" to "j", "љ" to "lj",
+        "њ" to "nj", "ќ" to "kj", "џ" to "dž", "ч" to "č", "ш" to "sh", "ж" to "zh",
+        "ц" to "c", "х" to "h"
     )
 
     private val RUSSIAN_CYRILLIC_LETTERS = setOf(
         "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
         "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь",
-        "Э", "Ю", "Я",
-        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н",
-        "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь",
-        "э", "ю", "я"
+        "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к",
+        "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
+        "ъ", "ы", "ь", "э", "ю", "я"
     )
 
     private val UKRAINIAN_CYRILLIC_LETTERS = setOf(
        "А", "Б", "В", "Г", "Ґ", "Д", "Е", "Є", "Ж", "З", "И", "І", "Ї", "Й",
         "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч",
-        "Ш", "Щ", "Ь", "Ю", "Я",
-        "а", "б", "в", "г", "ґ", "д", "е", "є", "ж", "з", "и", "і", "ї", "й",
-        "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч",
-        "ш", "щ", "ь", "ю", "я"
+        "Ш", "Щ", "Ь", "Ю", "Я", "а", "б", "в", "г", "ґ", "д", "е", "є", "ж", "з",
+        "и", "і", "ї", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф",
+        "х", "ц", "ч", "ш", "щ", "ь", "ю", "я"
     )
 
     private val SERBIAN_CYRILLIC_LETTERS = setOf(
@@ -234,39 +224,34 @@ object LyricsUtils {
     )
 
     private val BULGARIAN_CYRILLIC_LETTERS = setOf(
-        "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "Й", "К", "Л", "М",
-        "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
-        "Ъ", "Ь", "Ю", "Я",
-        "а", "б", "в", "г", "д", "е", "ж", "з", "и", "й", "к", "л", "м",
-        "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
-        "ъ", "ь", "ю", "я"
+        "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О",
+        "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ь", "Ю", "Я",
+        "а", "б", "в", "г", "д", "е", "ж", "з", "и", "й", "к", "л", "м", "н", "о",
+        "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ь", "ю", "я"
     )
 
     private val BELARUSIAN_CYRILLIC_LETTERS = setOf(
         "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "І", "Й", "К", "Л", "М", "Н",
         "О", "П", "Р", "С", "Т", "У", "Ў", "Ф", "Х", "Ц", "Ч", "Ш", "Ь", "Ю", "Я",
-        "Ы", "Э",
-        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "і", "й", "к", "л", "м", "н",
-        "о", "п", "р", "с", "т", "у", "ў", "ф", "х", "ц", "ч", "ш", "ь", "ю", "я",
-        "ы", "э"
+        "Ы", "Э", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "і", "й", "к", "л",
+        "м", "н", "о", "п", "р", "с", "т", "у", "ў", "ф", "х", "ц", "ч", "ш", "ь",
+        "ю", "я", "ы", "э"
     )
 
     private val KYRGYZ_CYRILLIC_LETTERS = setOf(
         "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
         "Ң", "О", "Ө", "П", "Р", "С", "Т", "У", "Ү", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
-        "Ъ", "Ы", "Ь", "Э", "Ю", "Я",
-        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н",
-        "ң", "о", "ө", "п", "р", "с", "т", "у", "ү", "ф", "х", "ц", "ч", "ш", "щ",
-        "ъ", "ы", "ь", "э", "ю", "я"
+        "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з",
+        "и", "й", "к", "л", "м", "н", "ң", "о", "ө", "п", "р", "с", "т", "у", "ү",
+        "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю", "я"
     )
 
     private val MACEDONIAN_CYRILLIC_LETTERS = setOf(
-        "А", "Б", "В", "Г", "Д", "Ѓ", "Е", "Ж", "З", "Ѕ", "И", "Ј", "К", "Л",
-        "Љ", "М", "Н", "Њ", "О", "П", "Р", "С", "Т", "Ќ", "У", "Ф", "Х",
-        "Ц", "Ч", "Џ", "Ш",
-        "а", "б", "в", "г", "д", "ѓ", "е", "ж", "з", "ѕ", "и", "ј", "к", "л",
-        "љ", "м", "н", "њ", "о", "п", "р", "с", "т", "ќ", "у", "ф", "х",
-        "ц", "ч", "џ", "ш"
+        "А", "Б", "В", "Г", "Д", "Ѓ", "Е", "Ж", "З", "Ѕ", "И", "Ј", "К", "Л", "Љ",
+        "М", "Н", "Њ", "О", "П", "Р", "С", "Т", "Ќ", "У", "Ф", "Х", "Ц", "Ч", "Џ",
+        "Ш", "а", "б", "в", "г", "д", "ѓ", "е", "ж", "з", "ѕ", "и", "ј", "к", "л",
+        "љ", "м", "н", "њ", "о", "п", "р", "с", "т", "ќ", "у", "ф", "х", "ц", "ч",
+        "џ", "ш"
     )
 
     private val UKRAINIAN_SPECIFIC_CYRILLIC_LETTERS = setOf("Ґ", "ґ", "Є", "є", "І", "і", "Ї", "ї")
@@ -666,27 +651,16 @@ object LyricsUtils {
         val targetTime = position + threshold
 
         val activeIndices = mutableSetOf<Int>()
-        
-        // 1. Build map of background lines to their closest main line
-        val bgToMainMap = mutableMapOf<Int, Int>()
-        val mainLineIndices = lines.indices.filter { !lines[it].isBackground }
-        for (i in lines.indices) {
-            if (lines[i].isBackground) {
-                val bgTime = lines[i].time
-                val closestMain = mainLineIndices.minByOrNull { kotlin.math.abs(lines[it].time - bgTime) }
-                if (closestMain != null) {
-                    bgToMainMap[i] = closestMain
-                }
-            }
-        }
-
         var latestMainIndex = -1
+        val bgToMainMap = mutableMapOf<Int, Int>()
 
         for (i in lines.indices) {
             val line = lines[i]
             if (line.time <= targetTime) {
                 if (!line.isBackground) {
                     latestMainIndex = i
+                } else {
+                    bgToMainMap[i] = latestMainIndex
                 }
 
                 if (line.words != null && line.words.isNotEmpty()) {
@@ -713,19 +687,18 @@ object LyricsUtils {
             }
         }
 
-        // Add closest main line for any active background line
         val mainLinesToActivate = mutableSetOf<Int>()
         for (idx in activeIndices) {
             if (lines[idx].isBackground) {
                 val mainIdx = bgToMainMap[idx]
-                if (mainIdx != null) {
+                if (mainIdx != null && mainIdx != -1) {
                     mainLinesToActivate.add(mainIdx)
                 }
             }
         }
         activeIndices.addAll(mainLinesToActivate)
 
-        // Always keep the latest main line active if no main line is currently active
+        // Always keep the latest main line active if nothing else is active
         if (activeIndices.none { !lines[it].isBackground } && latestMainIndex != -1) {
             activeIndices.add(latestMainIndex)
         }
