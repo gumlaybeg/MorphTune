@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -99,10 +100,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -207,6 +212,28 @@ import kotlin.time.Duration.Companion.seconds
 
 private data class HyphenGroupWord(val pos: Int, val size: Int, val isLast: Boolean, val groupStartMs: Long, val groupEndMs: Long)
 
+sealed class LyricDisplayItem {
+    abstract val key: String
+    abstract val time: Long
+
+    data class Line(
+        val index: Int,
+        val entry: LyricsEntry
+    ) : LyricDisplayItem() {
+        override val key: String get() = "$index-${entry.time}"
+        override val time: Long get() = entry.time
+    }
+
+    data class Instrumental(
+        val id: String,
+        val startTimeMs: Long,
+        val endTimeMs: Long
+    ) : LyricDisplayItem() {
+        override val key: String get() = id
+        override val time: Long get() = startTimeMs
+    }
+}
+
 private fun String.containsRtl(): Boolean {
     for (c in this) {
         val directionality = Character.getDirectionality(c).toInt()
@@ -245,6 +272,21 @@ private fun generateFallbackWords(text: String, startTimeMs: Long): List<WordTim
             hasTrailingSpace = idx < words.size - 1
         )
     }
+}
+
+private fun findCurrentItemIndex(
+    items: List<LyricDisplayItem>,
+    position: Long,
+): Int {
+    val threshold = 100L
+    for (index in items.indices) {
+        val item = items[index]
+        val nextItemTime = items.getOrNull(index + 1)?.time ?: (item.time + 10000L)
+        if (position + threshold < nextItemTime) {
+            return index
+        }
+    }
+    return items.lastIndex
 }
 
 @RequiresApi(Build.VERSION_CODES.M)
@@ -324,7 +366,9 @@ fun Lyrics(
             if (currentDbLyrics != null && currentDbLyrics.id == currentSongId) {
                 fetchedLyrics = currentDbLyrics.lyrics
                 isLoadingLyrics = false
-            } else {
+            } else if (currentDbLyrics == null) {
+                isLoadingLyrics = true
+                fetchedLyrics = null
                 withContext(Dispatchers.IO) {
                     try {
                         val entryPoint = EntryPointAccessors.fromApplication(
@@ -333,7 +377,6 @@ fun Lyrics(
                         )
                         val fetched = currentMetadata?.let { entryPoint.lyricsHelper().getLyrics(it) }
                         val finalLyrics = if (!fetched.isNullOrBlank()) fetched else LYRICS_NOT_FOUND
-                        
                         database.query { upsert(LyricsEntity(currentSongId, finalLyrics)) }
                     } catch (e: Exception) {
                         fetchedLyrics = LYRICS_NOT_FOUND
@@ -407,6 +450,51 @@ fun Lyrics(
         } else {
             lyrics.lines().mapIndexed { index, line ->
                 LyricsEntry(index * 100L, line)
+            }
+        }
+    }
+
+    // Build display items with Instrumental gaps (requires at least 3.5s gap before breathing dots show up)
+    val displayItems = remember(lyrics, lines) {
+        if (lyrics == null || lyrics == LYRICS_NOT_FOUND) {
+            emptyList()
+        } else if (lyrics.startsWith("[")) {
+            val parsedLines = if (lines.firstOrNull() == LyricsEntry.HEAD_LYRICS_ENTRY) {
+                lines.drop(1)
+            } else {
+                lines
+            }
+            val items = mutableListOf<LyricDisplayItem>()
+            var lastEndTime = 0L
+
+            parsedLines.forEachIndexed { idx, entry ->
+                val lineStart = entry.time
+                val prevEnd = lastEndTime
+
+                // Require AT LEAST 3.5s (3500ms) gap for breathing dots to show up
+                if (lineStart - prevEnd >= 3500L) {
+                    items.add(
+                        LyricDisplayItem.Instrumental(
+                            id = "inst_$idx-$prevEnd-$lineStart",
+                            startTimeMs = prevEnd,
+                            endTimeMs = lineStart
+                        )
+                    )
+                }
+
+                items.add(LyricDisplayItem.Line(idx, entry))
+
+                val lineDuration = if (entry.words != null && entry.words.isNotEmpty()) {
+                    ((entry.words.last().endTime * 1000) - entry.time).toLong().coerceAtLeast(2000L)
+                } else {
+                    3000L
+                }
+                lastEndTime = entry.time + lineDuration
+            }
+            items
+        } else {
+            lines.mapIndexed { index, entry ->
+                LyricDisplayItem.Line(index, entry)
             }
         }
     }
@@ -532,7 +620,7 @@ fun Lyrics(
             val sliderPos = sliderPositionProvider()
             isSeeking = sliderPos != null
             val pos = sliderPos ?: playerConnection.player.currentPosition
-            currentLineIndex = findCurrentLineIndex(lines, pos)
+            currentLineIndex = findCurrentItemIndex(displayItems, pos)
             activeLineIndices = findActiveLineIndices(lines, pos)
         }
     }
@@ -643,57 +731,91 @@ fun Lyrics(
                                 }
                             }
                         } else {
-                            itemsIndexed(items = lines, key = { index, item -> "$index-${item.time}" }) { index, item ->
-                                val isSelected = selectedIndices.contains(index)
-                                val isActiveLine = (index in activeLineIndices || index == displayedCurrentLineIndex) && isSynced
-                                val romWords = romanizedWordsMap[index]
+                            itemsIndexed(
+                                items = displayItems,
+                                key = { _, item -> item.key }
+                            ) { index, displayItem ->
+                                when (displayItem) {
+                                    is LyricDisplayItem.Line -> {
+                                        val item = displayItem.entry
+                                        val lineIdx = displayItem.index
+                                        val isSelected = selectedIndices.contains(lineIdx)
+                                        val isActiveLine = (lineIdx in activeLineIndices || index == displayedCurrentLineIndex) && isSynced
+                                        val romWords = romanizedWordsMap[lineIdx]
 
-                                LyricsLine(
-                                    index = index,
-                                    item = item,
-                                    romWords = romWords,
-                                    isSynced = isSynced,
-                                    isActiveLine = isActiveLine,
-                                    bgVisible = true,
-                                    isSelected = isSelected,
-                                    isSelectionModeActive = isSelectionModeActive,
-                                    currentPositionState = position,
-                                    lyricsOffset = 0L,
-                                    playerConnection = playerConnection,
-                                    lyricsTextSize = 25f,
-                                    lyricsLineSpacing = 1.2f,
-                                    expressiveAccent = expressiveAccent,
-                                    lyricsTextPosition = lyricsTextPosition,
-                                    respectAgentPositioning = true,
-                                    isAutoScrollEnabled = isAutoScrollEnabled,
-                                    displayedCurrentLineIndex = displayedCurrentLineIndex,
-                                    romanizeAsMain = false,
-                                    enabledLanguages = emptyList(),
-                                    romanizeLyrics = romanizeLyrics,
-                                    onSizeChanged = { },
-                                    onClick = {
-                                        if (isSelectionModeActive) {
-                                            if (isSelected) {
-                                                selectedIndices.remove(index)
-                                                if (selectedIndices.isEmpty()) isSelectionModeActive = false
-                                            } else {
-                                                if (selectedIndices.size < maxSelectionLimit) selectedIndices.add(index) else showMaxSelectionToast = true
+                                        LyricsLine(
+                                            index = lineIdx,
+                                            item = item,
+                                            romWords = romWords,
+                                            isSynced = isSynced,
+                                            isActiveLine = isActiveLine,
+                                            bgVisible = true,
+                                            isSelected = isSelected,
+                                            isSelectionModeActive = isSelectionModeActive,
+                                            currentPositionState = position,
+                                            lyricsOffset = 0L,
+                                            playerConnection = playerConnection,
+                                            lyricsTextSize = 25f,
+                                            lyricsLineSpacing = 1.2f,
+                                            expressiveAccent = expressiveAccent,
+                                            lyricsTextPosition = lyricsTextPosition,
+                                            respectAgentPositioning = true,
+                                            isAutoScrollEnabled = isAutoScrollEnabled,
+                                            displayedCurrentLineIndex = displayedCurrentLineIndex,
+                                            romanizeAsMain = false,
+                                            enabledLanguages = emptyList(),
+                                            romanizeLyrics = romanizeLyrics,
+                                            onSizeChanged = { },
+                                            onClick = {
+                                                if (isSelectionModeActive) {
+                                                    if (isSelected) {
+                                                        selectedIndices.remove(lineIdx)
+                                                        if (selectedIndices.isEmpty()) isSelectionModeActive = false
+                                                    } else {
+                                                        if (selectedIndices.size < maxSelectionLimit) selectedIndices.add(lineIdx) else showMaxSelectionToast = true
+                                                    }
+                                                } else if (isSynced && changeLyrics) {
+                                                    playerConnection.player.seekTo(item.time)
+                                                    scope.launch { performSmoothPageScroll(index, 1500) }
+                                                    lastPreviewTime = 0L
+                                                }
+                                            },
+                                            onLongClick = {
+                                                if (!isSelectionModeActive) {
+                                                    isSelectionModeActive = true
+                                                    selectedIndices.add(lineIdx)
+                                                } else if (!isSelected && selectedIndices.size < maxSelectionLimit) {
+                                                    selectedIndices.add(lineIdx)
+                                                } else if (!isSelected) showMaxSelectionToast = true
                                             }
-                                        } else if (isSynced && changeLyrics) {
-                                            playerConnection.player.seekTo(item.time)
-                                            scope.launch { performSmoothPageScroll(index, 1500) }
-                                            lastPreviewTime = 0L
-                                        }
-                                    },
-                                    onLongClick = {
-                                        if (!isSelectionModeActive) {
-                                            isSelectionModeActive = true
-                                            selectedIndices.add(index)
-                                        } else if (!isSelected && selectedIndices.size < maxSelectionLimit) {
-                                            selectedIndices.add(index)
-                                        } else if (!isSelected) showMaxSelectionToast = true
+                                        )
                                     }
-                                )
+                                    is LyricDisplayItem.Instrumental -> {
+                                        val dotsAlignment = when (lyricsTextPosition) {
+                                            LyricsPosition.LEFT -> Alignment.CenterStart
+                                            LyricsPosition.CENTER -> Alignment.Center
+                                            LyricsPosition.RIGHT -> Alignment.CenterEnd
+                                        }
+                                        KaraokeBreathingDots(
+                                            alignment = dotsAlignment,
+                                            startTimeMs = displayItem.startTimeMs.toInt(),
+                                            endTimeMs = displayItem.endTimeMs.toInt(),
+                                            currentTimeProvider = { (position + 0L).toInt() },
+                                            defaults = KaraokeBreathingDotsDefaults(
+                                                breathingDotsColor = expressiveAccent
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    if (isSynced && changeLyrics) {
+                                                        playerConnection.player.seekTo(displayItem.startTimeMs)
+                                                        scope.launch { performSmoothPageScroll(index, 1500) }
+                                                        lastPreviewTime = 0L
+                                                    }
+                                                }
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -849,6 +971,152 @@ fun Lyrics(
             mediaMetadata = currentMetadata,
             onDismiss = { showShareDialog = false; shareDialogData = null }
         )
+    }
+}
+
+private val layerPaint = Paint()
+
+data class KaraokeBreathingDotsDefaults(
+    val number: Int = 3,
+    val size: Dp = 16.dp,
+    val margin: Dp = 12.dp,
+    val enterDurationMs: Int = 1000,
+    val preExitStillDuration: Int = 200,
+    val preExitDipAndRiseDuration: Int = 1000,
+    val exitDurationMs: Int = 300,
+    val breathingDotsColor: Color = Color.White
+)
+
+@Composable
+fun KaraokeBreathingDots(
+    alignment: Alignment = Alignment.Center,
+    startTimeMs: Int,
+    endTimeMs: Int,
+    currentTimeProvider: () -> Int,
+    modifier: Modifier = Modifier,
+    defaults: KaraokeBreathingDotsDefaults = KaraokeBreathingDotsDefaults(),
+) {
+    val density = LocalDensity.current
+
+    val sizePx = remember(density, defaults.size) { with(density) { defaults.size.toPx() } }
+    val marginPx = remember(density, defaults.margin) { with(density) { defaults.margin.toPx() } }
+    val totalWidthPx = sizePx * defaults.number + marginPx * (defaults.number - 1)
+
+    val timeline = remember(startTimeMs, endTimeMs, defaults) {
+        val totalAvailable = (endTimeMs - startTimeMs).toFloat()
+        val defaultTotal = (defaults.enterDurationMs + defaults.preExitDipAndRiseDuration +
+                defaults.preExitStillDuration + defaults.exitDurationMs).toFloat()
+
+        val factor = if (totalAvailable < defaultTotal) totalAvailable / defaultTotal else 1f
+
+        val enter = defaults.enterDurationMs * factor
+        val dip = defaults.preExitDipAndRiseDuration * factor
+        val still = defaults.preExitStillDuration * factor
+        val exit = defaults.exitDurationMs * factor
+
+        object {
+            val enterEnd = startTimeMs + enter
+            val dipStart = endTimeMs - exit - still - dip
+            val stillStart = endTimeMs - exit - still
+            val exitStart = endTimeMs - exit
+            val breathingDuration = dipStart - enterEnd
+        }
+    }
+
+    Box(modifier) {
+        Canvas(
+            Modifier
+                .align(alignment)
+                .padding(vertical = 12.dp, horizontal = 16.dp)
+                .size(
+                    width = defaults.size * defaults.number + defaults.margin * (defaults.number - 1),
+                    height = defaults.size
+                )
+        ) {
+            if (totalWidthPx <= 0f) return@Canvas
+
+            val currentTime = currentTimeProvider().toFloat()
+            var scale: Float
+            var alpha: Float
+            var revealProgress: Float
+
+            when {
+                // Stage 1: Intro
+                currentTime < timeline.enterEnd -> {
+                    val progress = ((currentTime - startTimeMs) / (timeline.enterEnd - startTimeMs).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    alpha = FastOutSlowInEasing.transform(progress)
+                    scale = alpha * 0.8f
+                    revealProgress = alpha
+                }
+                // Stage 2: Breathe
+                currentTime < timeline.dipStart -> {
+                    alpha = 1f
+                    revealProgress = 1f
+                    val timeInPhase = currentTime - timeline.enterEnd
+                    val angle = (timeInPhase / 3000f) * 2 * PI
+                    scale = 0.9f - 0.1f * cos(angle.toFloat())
+                }
+                // Stage 3: Pre-exit
+                currentTime < timeline.stillStart -> {
+                    alpha = 1f
+                    revealProgress = 1f
+                    val progress = ((currentTime - timeline.dipStart) / (timeline.stillStart - timeline.dipStart).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    scale = 0.8f + 0.2f * cos(progress * 2 * PI).toFloat()
+                }
+                // Stage 4: Still
+                currentTime < timeline.exitStart -> {
+                    alpha = 1f
+                    revealProgress = 1f
+                    scale = 1.0f
+                }
+                // Stage 5: Outro
+                else -> {
+                    val progress = ((endTimeMs - currentTime) / (endTimeMs - timeline.exitStart).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    val eased = FastOutSlowInEasing.transform(progress)
+                    alpha = eased
+                    scale = eased
+                    revealProgress = 1f
+                }
+            }
+
+            drawIntoCanvas { canvas ->
+                canvas.saveLayer(Rect(Offset.Zero, Size(totalWidthPx, sizePx)), layerPaint)
+
+                withTransform({
+                    this.scale(scale = scale, pivot = Offset(totalWidthPx / 2f, sizePx / 2f))
+                }) {
+                    repeat(defaults.number) { index ->
+                        val dotAlpha = if (timeline.breathingDuration > 0 && currentTime >= timeline.enterEnd) {
+                            val dotDuration = timeline.breathingDuration / defaults.number
+                            val dotStart = timeline.enterEnd + (index * dotDuration)
+                            ((currentTime - dotStart) / dotDuration).coerceIn(0f, 1f) * 0.6f + 0.4f
+                        } else {
+                            0.4f
+                        }
+
+                        drawCircle(
+                            color = defaults.breathingDotsColor.copy(alpha = (dotAlpha * alpha).coerceIn(0f, 1f)),
+                            radius = sizePx / 2,
+                            center = Offset(sizePx / 2 + (sizePx + marginPx) * index, sizePx / 2)
+                        )
+                    }
+                }
+
+                val softEdgeWidth = 0.5f
+                val revealPos = revealProgress * (1f + softEdgeWidth)
+                val brush = Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0f to Color.Black,
+                        (revealPos - softEdgeWidth).coerceIn(0f, 1f) to Color.Black,
+                        revealPos.coerceIn(0f, 1f) to Color.Transparent,
+                        1f to Color.Transparent
+                    )
+                )
+                drawRect(brush = brush, blendMode = BlendMode.DstIn)
+
+                canvas.restore()
+            }
+        }
     }
 }
 
