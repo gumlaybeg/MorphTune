@@ -19,23 +19,23 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 
 @Serializable
-private data class AgentInfo(
+private data class LyricsPlusAgentInfo(
     val type: String? = null,
     val name: String? = null,
     val alias: String? = null,
 )
 
 @Serializable
-private data class SongPart(
+private data class LyricsPlusSongPart(
     val name: String? = null,
     val time: Long? = null,
     val duration: Long? = null,
 )
 
 @Serializable
-private data class LyricsMetadata(
-    val agents: Map<String, AgentInfo>? = null,
-    val songParts: List<SongPart>? = null,
+private data class LyricsPlusMetadata(
+    val agents: Map<String, LyricsPlusAgentInfo>? = null,
+    val songParts: List<LyricsPlusSongPart>? = null,
     val songWriters: List<String>? = null,
     val title: String? = null,
     val language: String? = null,
@@ -43,13 +43,13 @@ private data class LyricsMetadata(
 )
 
 @Serializable
-private data class Translation(
+private data class LyricsPlusTranslation(
     val lang: String? = null,
     val text: String? = null,
 )
 
 @Serializable
-private data class LyricWord(
+private data class LyricsPlusWord(
     val time: Long = 0,
     val duration: Long = 0,
     val text: String = "",
@@ -57,48 +57,48 @@ private data class LyricWord(
 )
 
 @Serializable
-private data class Transliteration(
+private data class LyricsPlusTransliteration(
     val lang: String? = null,
     val text: String? = null,
-    val syllabus: List<LyricWord>? = null,
+    val syllabus: List<LyricsPlusWord>? = null,
 )
 
 @Serializable
-private data class LineElement(
+private data class LyricsPlusLineElement(
     val key: String? = null,
     val singer: String? = null,
     val songPartIndex: Int? = null,
 )
 
 @Serializable
-private data class LyricLine(
+private data class LyricsPlusLine(
     val time: Long = 0,
     val duration: Long = 0,
     val text: String = "",
-    val syllabus: List<LyricWord>? = null,
-    val element: LineElement? = null,
-    val translation: Translation? = null,
-    val transliteration: Transliteration? = null,
+    val syllabus: List<LyricsPlusWord>? = null,
+    val element: LyricsPlusLineElement? = null,
+    val translation: LyricsPlusTranslation? = null,
+    val transliteration: LyricsPlusTransliteration? = null,
 )
 
 @Serializable
 private data class LyricsPlusResponse(
     val type: String? = null,
-    val metadata: LyricsMetadata? = null,
-    val lyrics: List<LyricLine>? = null,
+    val metadata: LyricsPlusMetadata? = null,
+    val lyrics: List<LyricsPlusLine>? = null,
     val cached: String? = null,
 )
 
 @Serializable
-private data class BinimumLyricsApiResponse(
+private data class LyricsPlusBinimumApiResponse(
     val total: Int? = null,
     val source: String? = null,
-    val results: List<BinimumLyricsResult> = emptyList(),
+    val results: List<LyricsPlusBinimumResult> = emptyList(),
     val error: String? = null,
 )
 
 @Serializable
-private data class BinimumLyricsResult(
+private data class LyricsPlusBinimumResult(
     val id: String? = null,
     val track_name: String? = null,
     val artist_name: String? = null,
@@ -109,7 +109,7 @@ private data class BinimumLyricsResult(
     val lyricsUrl: String? = null,
 )
 
-private data class BinimumLyricsFetchResult(
+private data class LyricsPlusBinimumFetchResult(
     val lrc: String,
     val isWordSync: Boolean,
 )
@@ -208,7 +208,7 @@ object LyricsPlusProvider : LyricsProvider {
         artist: String,
         duration: Int,
         album: String?,
-    ): BinimumLyricsFetchResult? {
+    ): LyricsPlusBinimumFetchResult? {
         val normalizedId = id.trim()
         val normalizedIsrc = normalizedId.uppercase()
         val canUseIsrc = normalizedIsrc.matches(ISRC_REGEX)
@@ -241,7 +241,7 @@ object LyricsPlusProvider : LyricsProvider {
 
         if (!response.status.isSuccess()) return null
 
-        val payload = runCatching { response.body<BinimumLyricsApiResponse>() }.getOrNull()
+        val payload = runCatching { response.body<LyricsPlusBinimumApiResponse>() }.getOrNull()
             ?: return null
         if (payload.results.isEmpty()) return null
 
@@ -259,12 +259,12 @@ object LyricsPlusProvider : LyricsProvider {
             }
         } ?: return null
 
-        val parsedLines = TTMLParser.parseTTML(ttml)
+        val parsedLines = PaxsenixTTMLParser.parseTTML(ttml)
         if (parsedLines.isEmpty()) return null
-        val lrc = TTMLParser.toLRC(parsedLines).trim()
+        val lrc = PaxsenixTTMLParser.toLRC(parsedLines).trim()
         if (lrc.isBlank()) return null
 
-        return BinimumLyricsFetchResult(
+        return LyricsPlusBinimumFetchResult(
             lrc = lrc,
             isWordSync = selectedResult.timing_type.equals("word", ignoreCase = true),
         )
@@ -333,7 +333,7 @@ object LyricsPlusProvider : LyricsProvider {
         return sb.toString().trimEnd().ifBlank { null }
     }
 
-    private fun buildText(words: List<LyricWord>): String =
+    private fun buildText(words: List<LyricsPlusWord>): String =
         words.joinToString("") { it.text }.trim()
 
     private fun StringBuilder.appendLrcLine(timeMs: Long, tag: String, text: String) {
@@ -343,7 +343,7 @@ object LyricsPlusProvider : LyricsProvider {
         append('\n')
     }
 
-    private fun StringBuilder.appendWordBlock(words: List<LyricWord>) {
+    private fun StringBuilder.appendWordBlock(words: List<LyricsPlusWord>) {
         val valid = words.filter { it.text.isNotBlank() }
         if (valid.isEmpty()) return
         append('<')
@@ -391,7 +391,7 @@ object LyricsPlusProvider : LyricsProvider {
     }
 
     private fun resolveLyricsWithFallback(
-        binimumResult: BinimumLyricsFetchResult?,
+        binimumResult: LyricsPlusBinimumFetchResult?,
         lyricsPlusResponse: LyricsPlusResponse?,
         lyricsPlusLrc: String?,
     ): String? {
