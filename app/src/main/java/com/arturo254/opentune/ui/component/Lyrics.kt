@@ -84,6 +84,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -229,6 +230,21 @@ private fun String.toGraphemeClusters(): List<String> {
         end = it.next()
     }
     return result
+}
+
+private fun generateFallbackWords(text: String, startTimeMs: Long): List<WordTimestamp> {
+    val words = text.split(Regex("\\s+")).filter { it.isNotBlank() }
+    val wordDurationSec = 0.18
+    val wordStaggerSec = 0.03
+    val startTimeSec = startTimeMs / 1000.0
+    return words.mapIndexed { idx, wordText ->
+        WordTimestamp(
+            text = wordText,
+            startTime = startTimeSec + (idx * wordStaggerSec),
+            endTime = startTimeSec + (idx * wordStaggerSec) + wordDurationSec,
+            hasTrailingSpace = idx < words.size - 1
+        )
+    }
 }
 
 @RequiresApi(Build.VERSION_CODES.M)
@@ -390,10 +406,13 @@ fun Lyrics(
         }
     }
 
+    val romanizedWordsMap = remember(currentSongId) { mutableStateMapOf<Int, List<WordTimestamp>>() }
+
     LaunchedEffect(lines, romanizeLyrics) {
-        if (romanizeLyrics && lines.isNotEmpty() && lyrics != null) {
+        if (romanizeLyrics && lines.isNotEmpty() && lyrics != null && lyrics != LYRICS_NOT_FOUND) {
             val enabledLangs = listOf("Japanese", "Korean", "Chinese", "Hindi", "Ukrainian", "Russian", "Serbian", "Bulgarian", "Belarusian", "Kyrgyz", "Macedonian")
-            for (line in lines) {
+            for (i in lines.indices) {
+                val line = lines[i]
                 if (line.text.isNotBlank()) {
                     launch(Dispatchers.Default) {
                         val romanized = com.arturo254.opentune.lyrics.LyricsUtils.romanize(
@@ -403,6 +422,19 @@ fun Lyrics(
                             romanizeCyrillicByLine = false
                         )
                         line.romanizedTextFlow.value = romanized
+
+                        if (line.words != null) {
+                            val romWords = line.words.map { w ->
+                                val rWord = com.arturo254.opentune.lyrics.LyricsUtils.romanize(
+                                    text = lyrics,
+                                    line = w.text,
+                                    enabledLanguages = enabledLangs,
+                                    romanizeCyrillicByLine = true
+                                ) ?: w.text
+                                w.copy(text = rWord)
+                            }
+                            romanizedWordsMap[i] = romWords
+                        }
                     }
                 }
             }
@@ -410,6 +442,7 @@ fun Lyrics(
             for (line in lines) {
                 line.romanizedTextFlow.value = null
             }
+            romanizedWordsMap.clear()
         }
     }
 
@@ -608,9 +641,12 @@ fun Lyrics(
                             itemsIndexed(items = lines, key = { index, item -> "$index-${item.time}" }) { index, item ->
                                 val isSelected = selectedIndices.contains(index)
                                 val isActiveLine = (index in activeLineIndices || index == displayedCurrentLineIndex) && isSynced
+                                val romWords = romanizedWordsMap[index]
+
                                 LyricsLine(
                                     index = index,
                                     item = item,
+                                    romWords = romWords,
                                     isSynced = isSynced,
                                     isActiveLine = isActiveLine,
                                     bgVisible = true,
@@ -815,6 +851,7 @@ fun Lyrics(
 internal fun LyricsLine(
     index: Int,
     item: LyricsEntry,
+    romWords: List<WordTimestamp>?,
     isSynced: Boolean,
     isActiveLine: Boolean,
     bgVisible: Boolean,
@@ -896,10 +933,15 @@ internal fun LyricsLine(
                 
                 val romanizedTextState by item.romanizedTextFlow.collectAsState()
                 val isRomanizedAvailable = romanizedTextState != null
+                
                 val mainTextRaw = if (romanizeAsMain && isRomanizedAvailable) romanizedTextState else item.text
                 val subTextRaw = if (romanizeAsMain && isRomanizedAvailable) item.text else romanizedTextState
+                
                 val mainText = if (item.isBackground) mainTextRaw?.removePrefix("(")?.removeSuffix(")") else mainTextRaw
                 val subText = if (item.isBackground) subTextRaw?.removePrefix("(")?.removeSuffix(")") else subTextRaw
+
+                val mainWords = if (romanizeAsMain && isRomanizedAvailable) romWords else item.words
+                val subWords = if (romanizeAsMain && isRomanizedAvailable) item.words else romWords
 
                 val lyricStyle = TextStyle(
                     fontSize = if (item.isBackground) (lyricsTextSize * 0.75f).sp else lyricsTextSize.sp,
@@ -913,28 +955,46 @@ internal fun LyricsLine(
                     lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.Both)
                 )
 
-                val effectiveWords = if (item.words?.isNotEmpty() == true) {
-                    item.words
+                val subLyricStyle = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    fontStyle = if (item.isBackground) FontStyle.Italic else FontStyle.Normal,
+                    lineHeight = (18f * lyricsLineSpacing).sp,
+                    letterSpacing = (-0.5).sp,
+                    textAlign = agentTextAlign,
+                    fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false),
+                    lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.Both)
+                )
+
+                val effectiveMainWords = if (mainWords?.isNotEmpty() == true) {
+                    mainWords
                 } else if (mainText != null) {
-                    remember(mainText, item.time) {
-                        val words = mainText.split(Regex("\\s+")).filter { it.isNotBlank() }
-                        val wordDurationSec = 0.18
-                        val wordStaggerSec = 0.03
-                        val startTimeSec = item.time / 1000.0
-                        words.mapIndexed { idx, wordText -> WordTimestamp(text = wordText, startTime = startTimeSec + (idx * wordStaggerSec), endTime = startTimeSec + (idx * wordStaggerSec) + wordDurationSec, hasTrailingSpace = idx < words.size - 1) }
-                    }
+                    remember(mainText, item.time) { generateFallbackWords(mainText, item.time) }
                 } else null
 
-                if (isSynced && effectiveWords != null && (isActiveLine || abs(index - displayedCurrentLineIndex) <= 3) && mainText != null) {
+                if (isSynced && effectiveMainWords != null && (isActiveLine || abs(index - displayedCurrentLineIndex) <= 3) && mainText != null) {
                     WordLevelLyrics(
-                        mainText = mainText, words = effectiveWords, isActiveLine = isActiveLine, currentPositionState = currentPositionState, lyricsOffset = lyricsOffset, playerConnection = playerConnection, lyricStyle = lyricStyle, lineColor = lineColor, expressiveAccent = expressiveAccent, isBackground = item.isBackground, focusedAlpha = 0.5f, alignment = agentTextAlign
+                        mainText = mainText, words = effectiveMainWords, isActiveLine = isActiveLine, currentPositionState = currentPositionState, lyricsOffset = lyricsOffset, playerConnection = playerConnection, lyricStyle = lyricStyle, lineColor = lineColor, expressiveAccent = expressiveAccent, isBackground = item.isBackground, focusedAlpha = 0.5f, alignment = agentTextAlign
                     )
                 } else {
                     Text(text = mainText ?: "", style = lyricStyle.copy(color = if (isActiveLine) expressiveAccent else lineColor), modifier = Modifier.fillMaxWidth())
                 }
                 
-                if (romanizeLyrics) {
-                    subText?.let { Text(text = it, fontSize = 18.sp, color = expressiveAccent.copy(alpha = 0.6f), textAlign = agentTextAlign, fontWeight = FontWeight.Normal, modifier = Modifier.padding(top = 2.dp)) }
+                if (romanizeLyrics && subText != null) {
+                    val effectiveSubWords = if (subWords?.isNotEmpty() == true) {
+                        subWords
+                    } else {
+                        remember(subText, item.time) { generateFallbackWords(subText, item.time) }
+                    }
+
+                    if (isSynced && effectiveSubWords != null && (isActiveLine || abs(index - displayedCurrentLineIndex) <= 3)) {
+                        WordLevelLyrics(
+                            mainText = subText, words = effectiveSubWords, isActiveLine = isActiveLine, currentPositionState = currentPositionState, lyricsOffset = lyricsOffset, playerConnection = playerConnection, lyricStyle = subLyricStyle, lineColor = lineColor.copy(alpha = 0.6f), expressiveAccent = expressiveAccent.copy(alpha = 0.8f), isBackground = item.isBackground, focusedAlpha = 0.6f, alignment = agentTextAlign
+                        )
+                    } else {
+                        Text(text = subText, style = subLyricStyle.copy(color = if (isActiveLine) expressiveAccent.copy(alpha = 0.8f) else lineColor.copy(alpha = 0.6f)), modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+                    }
                 }
                 val transText by item.translatedTextFlow.collectAsState()
                 transText?.let { Text(text = it, fontSize = 16.sp, color = expressiveAccent.copy(alpha = 0.5f), textAlign = agentTextAlign, fontWeight = FontWeight.Normal, modifier = Modifier.padding(top = 4.dp)) }
