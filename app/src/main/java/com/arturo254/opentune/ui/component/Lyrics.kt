@@ -174,6 +174,7 @@ import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.db.entities.LyricsEntity
 import com.arturo254.opentune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.arturo254.opentune.lyrics.LyricsEntry
+import com.arturo254.opentune.lyrics.LyricsUtils.findActiveLineIndices
 import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
 import com.arturo254.opentune.lyrics.WordTimestamp
@@ -263,6 +264,7 @@ fun Lyrics(
     val currentSongId = currentMetadata?.id
 
     var currentLineIndex by remember { mutableIntStateOf(-1) }
+    var activeLineIndices by remember(currentSongId) { mutableStateOf(setOf<Int>()) }
     var deferredCurrentLineIndex by remember(currentSongId) { mutableIntStateOf(0) }
     var previousLineIndex by remember(currentSongId) { mutableIntStateOf(0) }
     var lastPreviewTime by remember(currentSongId) { mutableLongStateOf(0L) }
@@ -404,6 +406,7 @@ fun Lyrics(
         isSelectionModeActive = false
         selectedIndices.clear()
         currentLineIndex = -1
+        activeLineIndices = emptySet()
         deferredCurrentLineIndex = 0
         previousLineIndex = 0
         initialScrollDone = false
@@ -470,12 +473,18 @@ fun Lyrics(
     }
 
     LaunchedEffect(lyrics) {
-        if (lyrics.isNullOrEmpty() || !lyrics.startsWith("[")) { currentLineIndex = -1; return@LaunchedEffect }
+        if (lyrics.isNullOrEmpty() || !lyrics.startsWith("[")) {
+            currentLineIndex = -1
+            activeLineIndices = emptySet()
+            return@LaunchedEffect
+        }
         while (isActive) {
             delay(50)
             val sliderPos = sliderPositionProvider()
             isSeeking = sliderPos != null
-            currentLineIndex = findCurrentLineIndex(lines, sliderPos ?: playerConnection.player.currentPosition)
+            val pos = sliderPos ?: playerConnection.player.currentPosition
+            currentLineIndex = findCurrentLineIndex(lines, pos)
+            activeLineIndices = findActiveLineIndices(lines, pos)
         }
     }
 
@@ -587,11 +596,12 @@ fun Lyrics(
                         } else {
                             itemsIndexed(items = lines, key = { index, item -> "$index-${item.time}" }) { index, item ->
                                 val isSelected = selectedIndices.contains(index)
+                                val isActiveLine = (index in activeLineIndices || index == displayedCurrentLineIndex) && isSynced
                                 LyricsLine(
                                     index = index,
                                     item = item,
                                     isSynced = isSynced,
-                                    isActiveLine = index == displayedCurrentLineIndex && isSynced,
+                                    isActiveLine = isActiveLine,
                                     bgVisible = true,
                                     isSelected = isSelected,
                                     isSelectionModeActive = isSelectionModeActive,
@@ -857,16 +867,21 @@ internal fun LyricsLine(
         @Composable
         fun LyricContent() {
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = agentAlignment) {
-                val inactiveAlpha = if (item.isBackground) 0.08f else 0.2f
+                val inactiveAlpha = 0.15f
                 val activeAlpha = 1f
-                val focusedAlpha = if (item.isBackground) 0.5f else 0.3f
-                val targetAlpha = if (!isSynced || item.isBackground || isActiveLine) activeAlpha
+                val targetAlpha = if (!isSynced || isActiveLine) activeAlpha
                 else if (isAutoScrollEnabled && displayedCurrentLineIndex >= 0) {
-                    when (abs(index - displayedCurrentLineIndex)) { 0 -> focusedAlpha; 1 -> 0.2f; 2 -> 0.2f; 3 -> 0.15f; 4 -> 0.1f; else -> 0.08f }
+                    when (abs(index - displayedCurrentLineIndex)) {
+                        0 -> 0.5f
+                        1 -> 0.35f
+                        2 -> 0.25f
+                        3 -> 0.18f
+                        else -> 0.12f
+                    }
                 } else inactiveAlpha
                 
                 val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
-                val lineColor = expressiveAccent.copy(alpha = if (item.isBackground) focusedAlpha else animatedAlpha)
+                val lineColor = expressiveAccent.copy(alpha = animatedAlpha)
                 
                 val romanizedTextState by item.romanizedTextFlow.collectAsState()
                 val isRomanizedAvailable = romanizedTextState != null
@@ -876,10 +891,10 @@ internal fun LyricsLine(
                 val subText = if (item.isBackground) subTextRaw?.removePrefix("(")?.removeSuffix(")") else subTextRaw
 
                 val lyricStyle = TextStyle(
-                    fontSize = if (item.isBackground) (lyricsTextSize * 0.7f).sp else lyricsTextSize.sp,
+                    fontSize = if (item.isBackground) (lyricsTextSize * 0.75f).sp else lyricsTextSize.sp,
                     fontWeight = FontWeight.Bold,
                     fontStyle = if (item.isBackground) FontStyle.Italic else FontStyle.Normal,
-                    lineHeight = if (item.isBackground) (lyricsTextSize * 0.7f * lyricsLineSpacing).sp else (lyricsTextSize * lyricsLineSpacing).sp,
+                    lineHeight = if (item.isBackground) (lyricsTextSize * 0.75f * lyricsLineSpacing).sp else (lyricsTextSize * lyricsLineSpacing).sp,
                     letterSpacing = (-0.5).sp,
                     textAlign = agentTextAlign,
                     fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
@@ -901,7 +916,7 @@ internal fun LyricsLine(
 
                 if (isSynced && effectiveWords != null && (isActiveLine || abs(index - displayedCurrentLineIndex) <= 3) && mainText != null) {
                     WordLevelLyrics(
-                        mainText = mainText, words = effectiveWords, isActiveLine = isActiveLine, currentPositionState = currentPositionState, lyricsOffset = lyricsOffset, playerConnection = playerConnection, lyricStyle = lyricStyle, lineColor = lineColor, expressiveAccent = expressiveAccent, isBackground = item.isBackground, focusedAlpha = focusedAlpha, alignment = agentTextAlign
+                        mainText = mainText, words = effectiveWords, isActiveLine = isActiveLine, currentPositionState = currentPositionState, lyricsOffset = lyricsOffset, playerConnection = playerConnection, lyricStyle = lyricStyle, lineColor = lineColor, expressiveAccent = expressiveAccent, isBackground = item.isBackground, focusedAlpha = 0.5f, alignment = agentTextAlign
                     )
                 } else {
                     Text(text = mainText ?: "", style = lyricStyle.copy(color = if (isActiveLine) expressiveAccent else lineColor), modifier = Modifier.fillMaxWidth())
