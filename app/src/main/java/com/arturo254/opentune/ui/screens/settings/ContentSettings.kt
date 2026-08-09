@@ -16,6 +16,8 @@ import com.arturo254.opentune.constants.ContentLanguageKey
 import com.arturo254.opentune.constants.CountryCodeToName
 import com.arturo254.opentune.constants.EnableKugouKey
 import com.arturo254.opentune.constants.EnableLrcLibKey
+import com.arturo254.opentune.constants.EnableLyricsPlusKey
+import com.arturo254.opentune.constants.EnablePaxsenixKey
 import com.arturo254.opentune.constants.HideExplicitKey
 import com.arturo254.opentune.constants.HistoryDuration
 import com.arturo254.opentune.constants.LanguageCodeToName
@@ -29,6 +31,7 @@ import com.arturo254.opentune.constants.QuickPicksKey
 import com.arturo254.opentune.constants.SYSTEM_DEFAULT
 import com.arturo254.opentune.constants.TopSize
 import com.arturo254.opentune.ui.component.EditTextPreference
+import com.arturo254.opentune.ui.component.EnumListPreference
 import com.arturo254.opentune.ui.component.ListPreference
 import com.arturo254.opentune.ui.component.SettingsGeneralCategory
 import com.arturo254.opentune.ui.component.SettingsPage
@@ -37,7 +40,6 @@ import com.arturo254.opentune.ui.component.SwitchPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
 import java.net.Proxy
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,11 +91,18 @@ fun ContentSettings(
         key = EnableLrcLibKey,
         defaultValue = true
     )
+    val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(
+        key = EnableLyricsPlusKey,
+        defaultValue = true
+    )
+    val (enablePaxsenix, onEnablePaxsenixChange) = rememberPreference(
+        key = EnablePaxsenixKey,
+        defaultValue = true
+    )
     val (preferredProvider, onPreferredProviderChange) = rememberEnumPreference(
         key = PreferredLyricsProviderKey,
         defaultValue = PreferredLyricsProvider.LRCLIB
     )
-
 
     SettingsPage(
         title = stringResource(R.string.content),
@@ -170,17 +179,43 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.lyrics),
             items = listOf(
+                {EnumListPreference(
+                    title = { Text("Preferred Lyrics Provider") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    selectedValue = preferredProvider,
+                    onValueSelected = onPreferredProviderChange,
+                    valueText = {
+                        when (it) {
+                            PreferredLyricsProvider.LRCLIB -> "LrcLib"
+                            PreferredLyricsProvider.KUGOU -> "KuGou"
+                            PreferredLyricsProvider.LYRICS_PLUS -> "LyricsPlus"
+                            PreferredLyricsProvider.PAXSENIX -> "Paxsenix"
+                        }
+                    }
+                )},
                 {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_lrclib)) },
+                    title = { Text("Enable LrcLib") },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableLrclib,
                     onCheckedChange = onEnableLrclibChange,
                 )},
                 {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_kugou)) },
+                    title = { Text("Enable KuGou") },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableKugou,
                     onCheckedChange = onEnableKugouChange,
+                )},
+                {SwitchPreference(
+                    title = { Text("Enable LyricsPlus") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableLyricsPlus,
+                    onCheckedChange = onEnableLyricsPlusChange,
+                )},
+                {SwitchPreference(
+                    title = { Text("Enable Paxsenix") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enablePaxsenix,
+                    onCheckedChange = onEnablePaxsenixChange,
                 )},
             )
         )
