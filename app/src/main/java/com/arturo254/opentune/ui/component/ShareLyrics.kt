@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,6 +19,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -58,7 +67,6 @@ import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -78,6 +86,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.PaddingValues
 import kotlin.math.min
 import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @Composable
 fun rememberAdjustedFontSize(
