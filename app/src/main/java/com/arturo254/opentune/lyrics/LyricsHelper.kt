@@ -19,36 +19,58 @@ class LyricsHelper
 constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private var lyricsProviders =
+    private var lyricsProviders: List<LyricsProvider> =
         listOf(
             LrcLibLyricsProvider,
             KuGouLyricsProvider,
+            LyricsPlusProvider,
+            PaxsenixLyricsProvider,
             YouTubeSubtitleLyricsProvider,
-            YouTubeLyricsProvider
+            YouTubeLyricsProvider,
         )
+
     val preferred =
         context.dataStore.data
             .map {
                 it[PreferredLyricsProviderKey].toEnum(PreferredLyricsProvider.LRCLIB)
             }.distinctUntilChanged()
-            .map {
-                lyricsProviders =
-                    if (it == PreferredLyricsProvider.LRCLIB) {
-                        listOf(
-                            LrcLibLyricsProvider,
-                            KuGouLyricsProvider,
-                            YouTubeSubtitleLyricsProvider,
-                            YouTubeLyricsProvider
-                        )
-                    } else {
-                        listOf(
-                            KuGouLyricsProvider,
-                            LrcLibLyricsProvider,
-                            YouTubeSubtitleLyricsProvider,
-                            YouTubeLyricsProvider
-                        )
-                    }
+            .map { preferredProvider ->
+                lyricsProviders = when (preferredProvider) {
+                    PreferredLyricsProvider.LRCLIB -> listOf(
+                        LrcLibLyricsProvider,
+                        KuGouLyricsProvider,
+                        LyricsPlusProvider,
+                        PaxsenixLyricsProvider,
+                        YouTubeSubtitleLyricsProvider,
+                        YouTubeLyricsProvider,
+                    )
+                    PreferredLyricsProvider.KUGOU -> listOf(
+                        KuGouLyricsProvider,
+                        LrcLibLyricsProvider,
+                        LyricsPlusProvider,
+                        PaxsenixLyricsProvider,
+                        YouTubeSubtitleLyricsProvider,
+                        YouTubeLyricsProvider,
+                    )
+                    PreferredLyricsProvider.LYRICS_PLUS -> listOf(
+                        LyricsPlusProvider,
+                        LrcLibLyricsProvider,
+                        KuGouLyricsProvider,
+                        PaxsenixLyricsProvider,
+                        YouTubeSubtitleLyricsProvider,
+                        YouTubeLyricsProvider,
+                    )
+                    PreferredLyricsProvider.PAXSENIX -> listOf(
+                        PaxsenixLyricsProvider,
+                        LyricsPlusProvider,
+                        LrcLibLyricsProvider,
+                        KuGouLyricsProvider,
+                        YouTubeSubtitleLyricsProvider,
+                        YouTubeLyricsProvider,
+                    )
+                }
             }
+
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
 
     suspend fun getLyrics(mediaMetadata: MediaMetadata): String {
