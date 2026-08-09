@@ -145,6 +145,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
@@ -976,6 +977,14 @@ fun Lyrics(
 
 private val layerPaint = Paint()
 
+private data class BreathingDotsTimeline(
+    val enterEnd: Float,
+    val dipStart: Float,
+    val stillStart: Float,
+    val exitStart: Float,
+    val breathingDuration: Float
+)
+
 data class KaraokeBreathingDotsDefaults(
     val number: Int = 3,
     val size: Dp = 16.dp,
@@ -1014,13 +1023,19 @@ fun KaraokeBreathingDots(
         val still = defaults.preExitStillDuration * factor
         val exit = defaults.exitDurationMs * factor
 
-        object {
-            val enterEnd = startTimeMs + enter
-            val dipStart = endTimeMs - exit - still - dip
-            val stillStart = endTimeMs - exit - still
-            val exitStart = endTimeMs - exit
-            val breathingDuration = dipStart - enterEnd
-        }
+        val enterEnd = startTimeMs.toFloat() + enter
+        val dipStart = endTimeMs.toFloat() - exit - still - dip
+        val stillStart = endTimeMs.toFloat() - exit - still
+        val exitStart = endTimeMs.toFloat() - exit
+        val breathingDuration = dipStart - enterEnd
+
+        BreathingDotsTimeline(
+            enterEnd = enterEnd,
+            dipStart = dipStart,
+            stillStart = stillStart,
+            exitStart = exitStart,
+            breathingDuration = breathingDuration
+        )
     }
 
     Box(modifier) {
