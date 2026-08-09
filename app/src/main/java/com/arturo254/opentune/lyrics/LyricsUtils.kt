@@ -275,71 +275,6 @@ object LyricsUtils {
     private val KYRGYZ_SPECIFIC_CYRILLIC_LETTERS = setOf("Ң", "ң", "Ө", "ө", "Ү", "ү")
     private val MACEDONIAN_SPECIFIC_CYRILLIC_LETTERS = setOf("Ѓ", "ѓ", "Ѕ", "ѕ", "Ќ", "ќ")
 
-    fun findCurrentLineIndex(
-        lines: List<LyricsEntry>,
-        position: Long,
-    ): Int {
-        val threshold = 100L
-        for (index in lines.indices) {
-            if (lines[index].time >= position + threshold) {
-                return index - 1
-            }
-        }
-        return lines.lastIndex
-    }
-
-    fun findActiveLineIndices(
-        lines: List<LyricsEntry>,
-        position: Long,
-    ): Set<Int> {
-        if (lines.isEmpty()) return emptySet()
-        val threshold = 100L
-        val targetTime = position + threshold
-
-        val activeIndices = mutableSetOf<Int>()
-        var latestMainIndex = -1
-
-        for (i in lines.indices) {
-            val line = lines[i]
-            if (line.time <= targetTime) {
-                if (!line.isBackground) {
-                    latestMainIndex = i
-                }
-
-                if (line.words != null && line.words.isNotEmpty()) {
-                    val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
-                    if (targetTime <= lineEndTimeMs + 300L) {
-                        activeIndices.add(i)
-                    }
-                } else {
-                    // Line synced
-                    var nextLineTime = line.time + 6000L
-                    for (j in i + 1 until lines.size) {
-                        if (lines[j].isBackground == line.isBackground && lines[j].agent == line.agent) {
-                            nextLineTime = lines[j].time
-                            break
-                        }
-                    }
-                    val maxEndTime = kotlin.math.min(nextLineTime, line.time + 8000L)
-                    if (targetTime < maxEndTime) {
-                        activeIndices.add(i)
-                    }
-                }
-            } else {
-                break
-            }
-        }
-
-        val hasActiveBackground = activeIndices.any { lines[it].isBackground }
-        val hasActiveMain = activeIndices.any { !lines[it].isBackground }
-        
-        if (hasActiveBackground && !hasActiveMain && latestMainIndex != -1) {
-            activeIndices.add(latestMainIndex)
-        }
-
-        return activeIndices
-    }
-
     private fun decodeHtmlEntities(text: String): String {
         if (!text.contains('&')) return text
         val sb = StringBuilder(text.length)
@@ -538,25 +473,6 @@ object LyricsUtils {
         } else null
 
         val wordTimings = mutableListOf<WordTimestamp>()
-        val startOfFirstWordMatch = wordMatches.first().range.first
-        val leadingContent = content.substring(0, startOfFirstWordMatch).trim()
-        val leadingTimeMatch = "\\[(\\d{1,2}):(\\d{2})\\.(\\d{2,3})\\]".toRegex().find(leadingContent)
-        val startTimeSecondsBase: Double? = if (leadingTimeMatch != null && leadingContent.substring(leadingTimeMatch.range.last + 1).isBlank()) {
-            val tMin = leadingTimeMatch.groupValues[1].toLongOrNull() ?: 0L
-            val tSec = leadingTimeMatch.groupValues[2].toLongOrNull() ?: 0L
-            val tFrac = leadingTimeMatch.groupValues[3].toLongOrNull() ?: 0L
-            val tFracPart = if (leadingTimeMatch.groupValues[3].length == 3) tFrac / 1000.0 else tFrac / 100.0
-            tMin * 60.0 + tSec + tFracPart
-        } else null
-
-        val lineStartTimeFallback = startTimeSecondsBase ?: run {
-            val firstMatch = wordMatches.first()
-            val m = firstMatch.groupValues[1].toLongOrNull() ?: 0L
-            val s = firstMatch.groupValues[2].toLongOrNull() ?: 0L
-            val f = firstMatch.groupValues[3].toLongOrNull() ?: 0L
-            val fp = if (firstMatch.groupValues[3].length == 3) f / 1000.0 else f / 100.0
-            m * 60.0 + s + fp
-        }
 
         wordMatches.forEachIndexed { index, match ->
             val minutes = match.groupValues[1].toLongOrNull() ?: 0L
@@ -581,7 +497,7 @@ object LyricsUtils {
                 nextTimestamp = nextMin * 60.0 + nextSec + nextFracPart
                 nextLineTime = null
             } else {
-                nextLineTime = getNextLineStartTime(currentIndex, allLines, lineStartTimeFallback)
+                nextLineTime = getNextLineStartTime(currentIndex, allLines)
                 nextTimestamp = trailingEndTime ?: nextLineTime ?: (startTimeSeconds + 0.5)
             }
 
@@ -619,44 +535,28 @@ object LyricsUtils {
         return if (wordTimings.isNotEmpty()) wordTimings else null
     }
 
-    private fun getNextLineStartTime(currentIndex: Int, allLines: List<String>, currentStartTime: Double): Double? {
-        for (i in currentIndex + 1 until allLines.size) {
-            val nextLine = allLines[i].trim()
-            var t: Double? = null
-            
-            val matchResult = RICH_SYNC_LINE_REGEX.matchEntire(nextLine)
-            if (matchResult != null) {
-                val minutes = matchResult.groupValues[1].toLongOrNull() ?: continue
-                val seconds = matchResult.groupValues[2].toLongOrNull() ?: continue
-                val fraction = matchResult.groupValues[3].toLongOrNull() ?: 0L
-                val fractionPart = if (matchResult.groupValues[3].length == 3) fraction / 1000.0 else fraction / 100.0
-                t = minutes * 60.0 + seconds + fractionPart
-            } else {
-                val bgMatch = PAXSENIX_BG_LINE_REGEX.matchEntire(nextLine)
-                if (bgMatch != null) {
-                    val content = bgMatch.groupValues[1]
-                    val wordMatch = RICH_SYNC_WORD_REGEX.find(content)
-                    if (wordMatch != null) {
-                        val minutes = wordMatch.groupValues[1].toLongOrNull() ?: continue
-                        val seconds = wordMatch.groupValues[2].toLongOrNull() ?: continue
-                        val fraction = wordMatch.groupValues[3].toLongOrNull() ?: 0L
-                        val fractionPart = if (wordMatch.groupValues[3].length == 3) fraction / 1000.0 else fraction / 100.0
-                        t = minutes * 60.0 + seconds + fractionPart
-                    }
-                } else {
-                    val agentMatch = PAXSENIX_AGENT_LINE_REGEX.find(nextLine)
-                    if (agentMatch != null) {
-                        val minutes = agentMatch.groupValues[1].toLongOrNull() ?: continue
-                        val seconds = agentMatch.groupValues[2].toLongOrNull() ?: continue
-                        val fraction = agentMatch.groupValues[3].toLongOrNull() ?: 0L
-                        val fractionPart = if (agentMatch.groupValues[3].length == 3) fraction / 1000.0 else fraction / 100.0
-                        t = minutes * 60.0 + seconds + fractionPart
-                    }
-                }
-            }
-            if (t != null && t > currentStartTime + 0.001) {
-                return t
-            }
+    private fun getNextLineStartTime(currentIndex: Int, allLines: List<String>): Double? {
+        if (currentIndex + 1 >= allLines.size) return null
+
+        val nextLine = allLines[currentIndex + 1].trim()
+        val matchResult = RICH_SYNC_LINE_REGEX.matchEntire(nextLine)
+        if (matchResult != null) {
+            val minutes = matchResult.groupValues[1].toLongOrNull() ?: return null
+            val seconds = matchResult.groupValues[2].toLongOrNull() ?: return null
+            val fraction = matchResult.groupValues[3].toLongOrNull() ?: 0L
+            val fractionPart = if (matchResult.groupValues[3].length == 3) fraction / 1000.0 else fraction / 100.0
+            return minutes * 60.0 + seconds + fractionPart
+        }
+        
+        val bgMatch = PAXSENIX_BG_LINE_REGEX.matchEntire(nextLine)
+        if (bgMatch != null) {
+            val content = bgMatch.groupValues[1]
+            val wordMatch = RICH_SYNC_WORD_REGEX.find(content) ?: return null
+            val minutes = wordMatch.groupValues[1].toLongOrNull() ?: return null
+            val seconds = wordMatch.groupValues[2].toLongOrNull() ?: return null
+            val fraction = wordMatch.groupValues[3].toLongOrNull() ?: 0L
+            val fractionPart = if (wordMatch.groupValues[3].length == 3) fraction / 1000.0 else fraction / 100.0
+            return minutes * 60.0 + seconds + fractionPart
         }
         return null
     }
@@ -742,6 +642,83 @@ object LyricsUtils {
                 val time = min * DateUtils.MINUTE_IN_MILLIS + sec * DateUtils.SECOND_IN_MILLIS + mil
                 LyricsEntry(time, text, words, agent = agent, isBackground = isBackground)
             }.toList()
+    }
+
+    fun findCurrentLineIndex(
+        lines: List<LyricsEntry>,
+        position: Long,
+    ): Int {
+        val threshold = 100L
+        for (index in lines.indices) {
+            if (lines[index].time >= position + threshold) {
+                return index - 1
+            }
+        }
+        return lines.lastIndex
+    }
+
+    fun findActiveLineIndices(
+        lines: List<LyricsEntry>,
+        position: Long,
+    ): Set<Int> {
+        if (lines.isEmpty()) return emptySet()
+        val threshold = 100L
+        val targetTime = position + threshold
+
+        val activeIndices = mutableSetOf<Int>()
+        var latestMainIndex = -1
+        val bgToMainMap = mutableMapOf<Int, Int>()
+
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.time <= targetTime) {
+                if (!line.isBackground) {
+                    latestMainIndex = i
+                } else {
+                    bgToMainMap[i] = latestMainIndex
+                }
+
+                if (line.words != null && line.words.isNotEmpty()) {
+                    val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
+                    if (targetTime <= lineEndTimeMs + 300L) {
+                        activeIndices.add(i)
+                    }
+                } else {
+                    // Line synced
+                    var nextLineTime = line.time + 6000L
+                    for (j in i + 1 until lines.size) {
+                        if (lines[j].isBackground == line.isBackground && lines[j].agent == line.agent) {
+                            nextLineTime = lines[j].time
+                            break
+                        }
+                    }
+                    val maxEndTime = kotlin.math.min(nextLineTime, line.time + 8000L)
+                    if (targetTime < maxEndTime) {
+                        activeIndices.add(i)
+                    }
+                }
+            } else {
+                break
+            }
+        }
+
+        val mainLinesToActivate = mutableSetOf<Int>()
+        for (idx in activeIndices) {
+            if (lines[idx].isBackground) {
+                val mainIdx = bgToMainMap[idx]
+                if (mainIdx != null && mainIdx != -1) {
+                    mainLinesToActivate.add(mainIdx)
+                }
+            }
+        }
+        activeIndices.addAll(mainLinesToActivate)
+
+        // Always keep the latest main line active if nothing else is active
+        if (activeIndices.none { !lines[it].isBackground } && latestMainIndex != -1) {
+            activeIndices.add(latestMainIndex)
+        }
+
+        return activeIndices
     }
 
     suspend fun romanizeJapanese(text: String): String = text // Stubbed for integration
