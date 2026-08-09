@@ -27,6 +27,8 @@ val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrclib")
+val EnableLyricsPlusKey = booleanPreferencesKey("enableLyricsPlus")
+val EnablePaxsenixKey = booleanPreferencesKey("enablePaxsenix")
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val LastNewReleaseCheckKey = longPreferencesKey("last_new_release_check")
 val minPlaybackDurKey = intPreferencesKey("minPlaybackDur")
@@ -272,6 +274,8 @@ enum class QuickPicks {
 enum class PreferredLyricsProvider {
     LRCLIB,
     KUGOU,
+    LYRICS_PLUS,
+    PAXSENIX,
 }
 
 enum class PlayerBackgroundStyle {
