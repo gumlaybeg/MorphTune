@@ -19,6 +19,7 @@ object LyricsUtils {
     fun parseLyrics(lyrics: String): List<LyricsEntry> {
         if (lyrics.isBlank()) return emptyList()
 
+        // Fast unescape
         val unescapedLyrics = if (lyrics.contains('\\') || lyrics.startsWith("\"")) {
             val s = lyrics.trim().removePrefix("\"").removeSuffix("\"")
             val sb = StringBuilder(s.length)
@@ -67,6 +68,7 @@ object LyricsUtils {
         lines.forEachIndexed { index, line ->
             val trimmedLine = line.trim()
             
+            // Try Paxsenix bg format first
             val bgMatch = PAXSENIX_BG_LINE_REGEX.find(trimmedLine)
             if (bgMatch != null) {
                 val content = bgMatch.groupValues[1]
@@ -77,6 +79,7 @@ object LyricsUtils {
                 return@forEachIndexed
             }
             
+            // Try Paxsenix agent format
             val agentMatch = PAXSENIX_AGENT_LINE_REGEX.find(trimmedLine)
             if (agentMatch != null) {
                 val minutes = agentMatch.groupValues[1].toLongOrNull() ?: 0L
@@ -97,6 +100,7 @@ object LyricsUtils {
                 return@forEachIndexed
             }
             
+            // Try existing format
             val matchResult = RICH_SYNC_LINE_REGEX.matchEntire(trimmedLine)
             if (matchResult != null) {
                 val minutes = matchResult.groupValues[1].toLongOrNull() ?: 0L
@@ -127,7 +131,6 @@ object LyricsUtils {
                 result.add(LyricsEntry(lineTimeMs, plainText, wordTimings, agent = if (isBackground) lastNonBgAgent ?: "bg" else agent, isBackground = isBackground))
             }
         }
-
         return result.sorted()
     }
 
@@ -214,6 +217,7 @@ object LyricsUtils {
     private fun getNextLineStartTime(currentIndex: Int, allLines: List<String>): Double? {
         if (currentIndex + 1 >= allLines.size) return null
         val nextLine = allLines[currentIndex + 1].trim()
+        
         val matchResult = RICH_SYNC_LINE_REGEX.matchEntire(nextLine)
         if (matchResult != null) {
             val minutes = matchResult.groupValues[1].toLongOrNull() ?: return null
@@ -222,6 +226,7 @@ object LyricsUtils {
             val fractionPart = if (matchResult.groupValues[3].length == 3) fraction / 1000.0 else fraction / 100.0
             return minutes * 60.0 + seconds + fractionPart
         }
+        
         val bgMatch = PAXSENIX_BG_LINE_REGEX.matchEntire(nextLine)
         if (bgMatch != null) {
             val content = bgMatch.groupValues[1]
@@ -237,7 +242,6 @@ object LyricsUtils {
 
     private fun parseStandardLyrics(lines: List<String>): List<LyricsEntry> {
         val result = mutableListOf<LyricsEntry>()
-
         var i = 0
         while (i < lines.size) {
             val line = lines[i]
