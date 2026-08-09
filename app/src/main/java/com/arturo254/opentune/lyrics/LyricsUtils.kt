@@ -275,6 +275,71 @@ object LyricsUtils {
     private val KYRGYZ_SPECIFIC_CYRILLIC_LETTERS = setOf("Ң", "ң", "Ө", "ө", "Ү", "ү")
     private val MACEDONIAN_SPECIFIC_CYRILLIC_LETTERS = setOf("Ѓ", "ѓ", "Ѕ", "ѕ", "Ќ", "ќ")
 
+    fun findCurrentLineIndex(
+        lines: List<LyricsEntry>,
+        position: Long,
+    ): Int {
+        val threshold = 100L
+        for (index in lines.indices) {
+            if (lines[index].time >= position + threshold) {
+                return index - 1
+            }
+        }
+        return lines.lastIndex
+    }
+
+    fun findActiveLineIndices(
+        lines: List<LyricsEntry>,
+        position: Long,
+    ): Set<Int> {
+        if (lines.isEmpty()) return emptySet()
+        val threshold = 100L
+        val targetTime = position + threshold
+
+        val activeIndices = mutableSetOf<Int>()
+        var latestMainIndex = -1
+
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.time <= targetTime) {
+                if (!line.isBackground) {
+                    latestMainIndex = i
+                }
+
+                if (line.words != null && line.words.isNotEmpty()) {
+                    val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
+                    if (targetTime <= lineEndTimeMs + 300L) {
+                        activeIndices.add(i)
+                    }
+                } else {
+                    // Line synced
+                    var nextLineTime = line.time + 6000L
+                    for (j in i + 1 until lines.size) {
+                        if (lines[j].isBackground == line.isBackground && lines[j].agent == line.agent) {
+                            nextLineTime = lines[j].time
+                            break
+                        }
+                    }
+                    val maxEndTime = kotlin.math.min(nextLineTime, line.time + 8000L)
+                    if (targetTime < maxEndTime) {
+                        activeIndices.add(i)
+                    }
+                }
+            } else {
+                break
+            }
+        }
+
+        val hasActiveBackground = activeIndices.any { lines[it].isBackground }
+        val hasActiveMain = activeIndices.any { !lines[it].isBackground }
+        
+        if (hasActiveBackground && !hasActiveMain && latestMainIndex != -1) {
+            activeIndices.add(latestMainIndex)
+        }
+
+        return activeIndices
+    }
+
     private fun decodeHtmlEntities(text: String): String {
         if (!text.contains('&')) return text
         val sb = StringBuilder(text.length)
@@ -677,71 +742,6 @@ object LyricsUtils {
                 val time = min * DateUtils.MINUTE_IN_MILLIS + sec * DateUtils.SECOND_IN_MILLIS + mil
                 LyricsEntry(time, text, words, agent = agent, isBackground = isBackground)
             }.toList()
-    }
-
-    fun findCurrentLineIndex(
-        lines: List<LyricDisplayItem>,
-        position: Long,
-    ): Int {
-        val threshold = 100L
-        for (index in lines.indices) {
-            val item = lines[index]
-            val nextItemTime = lines.getOrNull(index + 1)?.time ?: (item.time + 10000L)
-            if (position + threshold < nextItemTime) {
-                return index
-            }
-        }
-        return lines.lastIndex
-    }
-
-    fun findActiveLineIndices(
-        lines: List<LyricsEntry>,
-        position: Long,
-    ): Set<Int> {
-        if (lines.isEmpty()) return emptySet()
-        val threshold = 100L
-        val targetTime = position + threshold
-
-        val activeIndices = mutableSetOf<Int>()
-        var latestMainIndex = -1
-
-        for (i in lines.indices) {
-            val line = lines[i]
-            if (line.time <= targetTime) {
-                if (!line.isBackground) {
-                    latestMainIndex = i
-                }
-
-                if (line.words != null && line.words.isNotEmpty()) {
-                    val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
-                    if (targetTime <= lineEndTimeMs + 300L) {
-                        activeIndices.add(i)
-                    }
-                } else {
-                    // Line synced
-                    var nextLineTime = line.time + 6000L
-                    for (j in i + 1 until lines.size) {
-                        if (lines[j].isBackground == line.isBackground && lines[j].agent == line.agent) {
-                            nextLineTime = lines[j].time
-                            break
-                        }
-                    }
-                    val maxEndTime = kotlin.math.min(nextLineTime, line.time + 8000L)
-                    if (targetTime < maxEndTime) {
-                        activeIndices.add(i)
-                    }
-                }
-            } else {
-                break
-            }
-        }
-
-        // Always keep the latest main line active if nothing else is active
-        if (activeIndices.none { !lines[it].isBackground } && latestMainIndex != -1) {
-            activeIndices.add(latestMainIndex)
-        }
-
-        return activeIndices
     }
 
     suspend fun romanizeJapanese(text: String): String = text // Stubbed for integration
