@@ -66,7 +66,6 @@ android {
         compose = true
     }
 
-    // ✅ Alineamos TODO a Java 21
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_21
@@ -164,6 +163,9 @@ dependencies {
     implementation(project(":jossredconnect"))
 
     implementation(libs.ktor.client.core)
+    implementation(libs.ktor_client_cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.json)
 
     coreLibraryDesugaring(libs.desugaring)
 
