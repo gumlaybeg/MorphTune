@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -21,9 +22,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -39,7 +38,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,13 +47,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -63,14 +58,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,20 +84,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -122,11 +105,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -134,14 +114,11 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -149,11 +126,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.palette.graphics.Palette
-import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
-import coil.request.CachePolicy
+import coil.imageLoader
 import coil.request.ImageRequest
 import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalPlayerConnection
@@ -175,12 +149,10 @@ import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
 import com.arturo254.opentune.lyrics.WordTimestamp
 import com.arturo254.opentune.playback.PlayerConnection
-import com.arturo254.opentune.ui.component.shimmer.ContainedLoadingIndicator
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
 import com.arturo254.opentune.ui.utils.fadingEdge
-import com.arturo254.opentune.utils.ComposeToImage
 import com.arturo254.opentune.utils.makeTimeString
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
@@ -199,64 +171,6 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.time.Duration.Companion.seconds
-
-enum class LyricsBackgroundStyle { SOLID, BLUR, GRADIENT }
-enum class FontStyle { REGULAR, BOLD, EXTRA_BOLD }
-enum class LogoPosition { BOTTOM_LEFT, BOTTOM_RIGHT, TOP_LEFT, TOP_RIGHT, NONE }
-enum class BackgroundStyle { SOLID, GRADIENT, PATTERN }
-enum class TextAlignment { LEFT, CENTER, RIGHT }
-enum class LogoSize { SMALL, MEDIUM, LARGE }
-enum class CoverArtStyle { ROUNDED, CIRCLE, SQUARE }
-enum class LyricsStyle { NORMAL, ITALIC, CONDENSED }
-
-data class ImageCustomization(
-    val backgroundColor: Color = Color(0xFF1A1A1A),
-    val textColor: Color = Color.White,
-    val secondaryTextColor: Color = Color.White.copy(alpha = 0.7f),
-    val backgroundStyle: BackgroundStyle = BackgroundStyle.SOLID,
-    val gradientColors: List<Color>? = null,
-    val fontStyle: FontStyle = FontStyle.EXTRA_BOLD,
-    val showCoverArt: Boolean = true,
-    val showSongTitle: Boolean = true,
-    val showArtistName: Boolean = true,
-    val showLogo: Boolean = true,
-    val logoPosition: LogoPosition = LogoPosition.BOTTOM_RIGHT,
-    val logoSize: LogoSize = LogoSize.MEDIUM,
-    val patternOpacity: Float = 0.05f,
-    val cornerRadius: Float = 16f,
-    val isDark: Boolean = true,
-    val textAlignment: TextAlignment = TextAlignment.CENTER,
-    val padding: Float = 24f,
-    val textShadowEnabled: Boolean = true,
-    val borderEnabled: Boolean = false,
-    val borderColor: Color = Color.White.copy(alpha = 0.3f),
-    val borderWidth: Float = 2f,
-    val coverArtStyle: CoverArtStyle = CoverArtStyle.ROUNDED,
-    val lyricsStyle: LyricsStyle = LyricsStyle.NORMAL,
-    val accentColor: Color? = null,
-    val showAccentLine: Boolean = false,
-    val spacingBetweenElements: Float = 16f,
-    val lyricsLineSpacing: Float = 1.3f
-)
-
-data class ColorPreset(val name: String, val customization: ImageCustomization)
-
-val colorPresets = listOf(
-    ColorPreset("Dark", ImageCustomization(backgroundColor = Color(0xFF1A1A1A), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.7f), isDark = true)),
-    ColorPreset("Light", ImageCustomization(backgroundColor = Color(0xFFF5F5F5), textColor = Color.Black, secondaryTextColor = Color.Black.copy(alpha = 0.7f), isDark = false)),
-    ColorPreset("Blue", ImageCustomization(backgroundColor = Color(0xFF1E3A8A), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.8f), isDark = true)),
-    ColorPreset("Purple", ImageCustomization(backgroundColor = Color(0xFF4C1D95), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.8f), isDark = true)),
-    ColorPreset("Red", ImageCustomization(backgroundColor = Color(0xFF991B1B), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.8f), isDark = true)),
-    ColorPreset("Green", ImageCustomization(backgroundColor = Color(0xFF065F46), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.8f), isDark = true)),
-    ColorPreset("Gradient Blue", ImageCustomization(backgroundStyle = BackgroundStyle.GRADIENT, gradientColors = listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF60A5FA)), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.9f), isDark = true)),
-    ColorPreset("Gradient Purple", ImageCustomization(backgroundStyle = BackgroundStyle.GRADIENT, gradientColors = listOf(Color(0xFF4C1D95), Color(0xFF7C3AED), Color(0xFFA78BFA)), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.9f), isDark = true)),
-    ColorPreset("Gradient Sunset", ImageCustomization(backgroundStyle = BackgroundStyle.GRADIENT, gradientColors = listOf(Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFF8B5CF6)), textColor = Color.White, secondaryTextColor = Color.White.copy(alpha = 0.9f), isDark = true))
-)
-
-fun Color.isDark(): Boolean {
-    val luminance = 0.299f * this.red + 0.587f * this.green + 0.114f * this.blue
-    return luminance < 0.5f
-}
 
 private data class HyphenGroupWord(val pos: Int, val size: Int, val isLast: Boolean, val groupStartMs: Long, val groupEndMs: Long)
 
@@ -286,7 +200,7 @@ private fun String.toGraphemeClusters(): List<String> {
 }
 
 @RequiresApi(Build.VERSION_CODES.M)
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedBoxWithConstraintsScope", "StringFormatInvalid", "LocalContextGetResourceValueCall")
 @Composable
 fun Lyrics(
@@ -603,9 +517,9 @@ fun Lyrics(
                                 val c1 = gradientColors[0]; val c2 = gradientColors.getOrElse(1) { c1.copy(alpha = 0.8f) }; val c3 = gradientColors.getOrElse(2) { c1.copy(alpha = 0.6f) }
                                 Canvas(modifier = Modifier.fillMaxSize().blur(100.dp)) {
                                     drawRect(Brush.verticalGradient(listOf(c1, c2, c3)))
-                                    drawCircle(Brush.radialGradient(listOf(c1, Color.Transparent), Offset(size.width*0.2f, size.height*0.2f), size.width*0.8f), Offset(size.width*0.2f, size.height*0.2f), size.width*0.8f)
-                                    drawCircle(Brush.radialGradient(listOf(c2, Color.Transparent), Offset(size.width*0.8f, size.height*0.5f), size.width*0.7f), Offset(size.width*0.8f, size.height*0.5f), size.width*0.7f)
-                                    drawCircle(Brush.radialGradient(listOf(c3, Color.Transparent), Offset(size.width*0.3f, size.height*0.8f), size.width*0.9f), Offset(size.width*0.3f, size.height*0.8f), size.width*0.9f)
+                                    drawCircle(brush = Brush.radialGradient(listOf(c1, Color.Transparent), Offset(size.width*0.2f, size.height*0.2f), size.width*0.8f), center = Offset(size.width*0.2f, size.height*0.2f), radius = size.width*0.8f)
+                                    drawCircle(brush = Brush.radialGradient(listOf(c2, Color.Transparent), Offset(size.width*0.8f, size.height*0.5f), size.width*0.7f), center = Offset(size.width*0.8f, size.height*0.5f), radius = size.width*0.7f)
+                                    drawCircle(brush = Brush.radialGradient(listOf(c3, Color.Transparent), Offset(size.width*0.3f, size.height*0.8f), size.width*0.9f), center = Offset(size.width*0.3f, size.height*0.8f), radius = size.width*0.9f)
                                 }
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
                             }
@@ -636,7 +550,7 @@ fun Lyrics(
                                     contentAlignment = when (lyricsTextPosition) { LyricsPosition.LEFT -> Alignment.CenterStart; LyricsPosition.CENTER -> Alignment.Center; else -> Alignment.CenterEnd }
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        ContainedLoadingIndicator(modifier = Modifier.size(56.dp), containerColor = expressiveAccent.copy(alpha = 0.15f), indicatorColor = expressiveAccent)
+                                        CircularProgressIndicator(modifier = Modifier.size(56.dp), color = expressiveAccent, trackColor = expressiveAccent.copy(alpha = 0.15f))
                                     }
                                 }
                             }
@@ -751,7 +665,11 @@ fun Lyrics(
                                 currentMetadata?.let { AsyncImage(model = it.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                                 val overlayAlpha by androidx.compose.animation.core.animateFloatAsState(if (isPlaying) 0.4f else 0.4f, label = "overlay_alpha")
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = overlayAlpha)))
-                                AnimatedVisibility(visible = playbackState == Player.STATE_ENDED || !isPlaying || isPlaying, enter = fadeIn(), exit = fadeOut()) {
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = playbackState == Player.STATE_ENDED || !isPlaying || isPlaying,
+                                    enter = fadeIn(),
+                                    exit = fadeOut()
+                                ) {
                                     Icon(painterResource(if (playbackState == Player.STATE_ENDED) R.drawable.replay else if (isPlaying) R.drawable.pause else R.drawable.play), null, tint = Color.White, modifier = Modifier.size(24.dp))
                                 }
                             }
@@ -1242,239 +1160,6 @@ private fun WordLevelLyrics(
                     lineCurrentPushes[lineIdx] += charBounds.width * (charScaleX - 1f)
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ShareLyricsDialog(
-    lyricsText: String,
-    songTitle: String,
-    artists: String,
-    mediaMetadata: com.arturo254.opentune.models.MediaMetadata?,
-    onDismiss: () -> Unit,
-    onShareAsImage: (String, String, String) -> Unit = { _, _, _ -> }
-) {
-    val context = LocalContext.current
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Card(shape = RoundedCornerShape(20.dp), elevation = CardDefaults.cardElevation(defaultElevation = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.padding(16.dp).fillMaxWidth(0.85f)) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(text = stringResource(R.string.share_lyrics), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier.fillMaxWidth().clickable {
-                    val shareIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        type = "text/plain"
-                        val songLink = "https://music.youtube.com/watch?v=${mediaMetadata?.id}"
-                        putExtra(Intent.EXTRA_TEXT, "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink")
-                    }
-                    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_lyrics)))
-                    onDismiss()
-                }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(painter = painterResource(id = R.drawable.share), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = stringResource(R.string.share_as_text), fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
-                }
-                Row(modifier = Modifier.fillMaxWidth().clickable { onShareAsImage(lyricsText, songTitle, artists) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(painter = painterResource(id = R.drawable.share), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = stringResource(R.string.share_as_image), fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
-                }
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
-                    Text(text = stringResource(R.string.cancel), fontSize = 16.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { onDismiss() }.padding(vertical = 8.dp, horizontal = 12.dp))
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ShareLyricsImageCustomizationSheet(
-    lyricsText: String,
-    songTitle: String,
-    artists: String,
-    mediaMetadata: com.arturo254.opentune.models.MediaMetadata?,
-    onDismiss: () -> Unit,
-    onBack: () -> Unit,
-    showProgressDialog: Boolean,
-    onShowProgressDialog: (Boolean) -> Unit
-) {
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
-    val coverUrl = mediaMetadata?.thumbnailUrl
-    val paletteColors = remember { mutableStateListOf<Color>() }
-
-    var selectedCustomization by remember { mutableStateOf(colorPresets[0].customization) }
-    var isPresetSelectorExpanded by remember { mutableStateOf(true) }
-
-    LaunchedEffect(coverUrl) {
-        if (coverUrl != null) {
-            withContext(Dispatchers.IO) {
-                try {
-                    val loader = coil.ImageLoader(context)
-                    val req = coil.request.ImageRequest.Builder(context).data(coverUrl).allowHardware(false).build()
-                    val drawable = loader.execute(req).drawable
-                    if (drawable != null) {
-                        val bitmap = drawable.toBitmap()
-                        val palette = Palette.from(bitmap).generate()
-                        val colors = listOfNotNull(
-                            palette.getLightVibrantColor(Color.Black.toArgb()).takeIf { it != Color.Black.toArgb() },
-                            palette.getVibrantColor(Color.Black.toArgb()).takeIf { it != Color.Black.toArgb() },
-                            palette.getDarkVibrantColor(Color.Black.toArgb()).takeIf { it != Color.Black.toArgb() },
-                            palette.getLightMutedColor(Color.Black.toArgb()).takeIf { it != Color.Black.toArgb() },
-                            palette.getMutedColor(Color.Black.toArgb()).takeIf { it != Color.Black.toArgb() },
-                            palette.getDarkMutedColor(Color.Black.toArgb()).takeIf { it != Color.Black.toArgb() }
-                        ).map { Color(it) }.distinct()
-                        if (colors.isNotEmpty()) {
-                            paletteColors.clear()
-                            paletteColors.addAll(colors)
-                        }
-                    }
-                } catch (e: Exception) { e.printStackTrace() }
-            }
-        }
-    }
-
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-                        Icon(painter = painterResource(id = R.drawable.arrow_back), contentDescription = stringResource(R.string.back), tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = stringResource(R.string.customize_image), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(painter = painterResource(id = R.drawable.close), contentDescription = stringResource(R.string.cancel), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(text = stringResource(R.string.select_theme), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(Modifier.height(16.dp))
-                    if (paletteColors.isNotEmpty()) {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 16.dp)) {
-                            items(paletteColors) { color ->
-                                val customization = ImageCustomization(backgroundColor = color, textColor = if (color.isDark()) Color.White else Color.Black, secondaryTextColor = if (color.isDark()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f), isDark = color.isDark())
-                                val scale by animateFloatAsState(targetValue = if (selectedCustomization.backgroundColor == color) 1.1f else 1f)
-                                Column(modifier = Modifier.width(60.dp).clickable { selectedCustomization = customization }, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Box(modifier = Modifier.size(48.dp).scale(scale).clip(RoundedCornerShape(12.dp)).background(color).border(width = if (selectedCustomization.backgroundColor == color) 2.dp else 1.dp, color = if (selectedCustomization.backgroundColor == color) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                                        Text(text = "Aa", color = customization.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(colorPresets) { preset ->
-                            val scale by animateFloatAsState(targetValue = if (selectedCustomization.backgroundColor == preset.customization.backgroundColor) 1.1f else 1f)
-                            Column(modifier = Modifier.width(60.dp).clickable { selectedCustomization = preset.customization }, horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(modifier = Modifier.size(48.dp).scale(scale).clip(RoundedCornerShape(12.dp)).background(if (preset.customization.backgroundStyle == BackgroundStyle.GRADIENT && preset.customization.gradientColors != null) Brush.linearGradient(preset.customization.gradientColors!!) else Brush.linearGradient(listOf(preset.customization.backgroundColor, preset.customization.backgroundColor))).border(width = if (selectedCustomization.backgroundColor == preset.customization.backgroundColor) 2.dp else 1.dp, color = if (selectedCustomization.backgroundColor == preset.customization.backgroundColor) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                                    Text(text = "Aa", color = preset.customization.textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(text = stringResource(R.string.preview), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(horizontal = 24.dp))
-            Spacer(modifier = Modifier.height(16.dp))
-
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
-                if (mediaMetadata != null) {
-                    val previewSize = remember(maxWidth) { min(maxWidth.value - 48f, 380f).dp }
-                    Box(modifier = Modifier.size(previewSize), contentAlignment = Alignment.Center) {
-                        // Normally calling LyricsImageCardPreview here
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                androidx.compose.material3.OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                    Text(text = stringResource(R.string.back), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-                }
-
-                androidx.compose.material3.Button(
-                    onClick = {
-                        scope.launch {
-                            onShowProgressDialog(true)
-                            try {
-                                val screenWidth = configuration.screenWidthDp
-                                val screenHeight = configuration.screenHeightDp
-                                val image = ComposeToImage.createLyricsImage(
-                                    context = context,
-                                    coverArtUrl = coverUrl,
-                                    songTitle = songTitle,
-                                    artistName = artists,
-                                    lyrics = lyricsText,
-                                    width = (screenWidth * density.density).toInt(),
-                                    height = (screenHeight * density.density).toInt(),
-                                    backgroundColor = selectedCustomization.backgroundColor.toArgb(),
-                                    textColor = selectedCustomization.textColor.toArgb(),
-                                    secondaryTextColor = selectedCustomization.secondaryTextColor.toArgb(),
-                                    showCoverArt = selectedCustomization.showCoverArt,
-                                    showLogo = selectedCustomization.showLogo,
-                                    backgroundStyle = selectedCustomization.backgroundStyle.name,
-                                    gradientColors = selectedCustomization.gradientColors?.map { it.toArgb() }?.toIntArray(),
-                                    fontStyle = selectedCustomization.fontStyle.name,
-                                    logoPosition = selectedCustomization.logoPosition.name,
-                                    cornerRadius = selectedCustomization.cornerRadius,
-                                    patternOpacity = selectedCustomization.patternOpacity,
-                                    textAlignment = selectedCustomization.textAlignment.name,
-                                    padding = selectedCustomization.padding,
-                                    showArtistName = selectedCustomization.showArtistName,
-                                    showSongTitle = selectedCustomization.showSongTitle,
-                                    textShadowEnabled = selectedCustomization.textShadowEnabled,
-                                    borderEnabled = selectedCustomization.borderEnabled,
-                                    borderColor = selectedCustomization.borderColor.toArgb(),
-                                    borderWidth = selectedCustomization.borderWidth,
-                                    logoSize = selectedCustomization.logoSize.name,
-                                    coverArtStyle = selectedCustomization.coverArtStyle.name,
-                                    lyricsStyle = selectedCustomization.lyricsStyle.name,
-                                    showAccentLine = selectedCustomization.showAccentLine,
-                                    accentColor = selectedCustomization.accentColor?.toArgb(),
-                                    spacingBetweenElements = selectedCustomization.spacingBetweenElements,
-                                    lyricsLineSpacing = selectedCustomization.lyricsLineSpacing
-                                )
-                                val timestamp = System.currentTimeMillis()
-                                val filename = "lyrics_$timestamp"
-                                val uri = ComposeToImage.saveBitmapAsFile(context, image, filename)
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "image/png"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share Lyrics"))
-                                onShowProgressDialog(false)
-                                onDismiss()
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Failed to create image: ${e.message}", Toast.LENGTH_SHORT).show()
-                                onShowProgressDialog(false)
-                            }
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text(text = stringResource(R.string.share_lyrics_image), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
