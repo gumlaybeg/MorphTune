@@ -98,7 +98,7 @@ fun ShareLyricsDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                painter = painterResource(id = R.drawable.media3_icon_share),
+                                painter = painterResource(id = R.drawable.share),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp)
@@ -160,7 +160,7 @@ fun ShareLyricsDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.media3_icon_share),
+                            painter = painterResource(id = R.drawable.share),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(20.dp)
@@ -357,9 +357,9 @@ fun ShareLyricsImageCustomizationSheet(
                         items(paletteColors) { color ->
                             val customization = ImageCustomization(
                                 backgroundColor = color,
-                                textColor = if (color.isDark()) Color.White else Color.Black,
-                                secondaryTextColor = if (color.isDark()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
-                                isDark = color.isDark()
+                                textColor = if (color.isDarkColor()) Color.White else Color.Black,
+                                secondaryTextColor = if (color.isDarkColor()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
+                                isDark = color.isDarkColor()
                             )
                             BottomSheetColorCustomizationItem(
                                 customization = customization,
@@ -556,20 +556,20 @@ fun ShareLyricsImageCustomizationSheet(
                     SettingSection(title = "Font Style") {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
-                                selected = selectedCustomization.fontStyle == FontStyle.REGULAR,
-                                onClick = { selectedCustomization = selectedCustomization.copy(fontStyle = FontStyle.REGULAR) },
+                                selected = selectedCustomization.fontStyle == CustomFontStyle.REGULAR,
+                                onClick = { selectedCustomization = selectedCustomization.copy(fontStyle = CustomFontStyle.REGULAR) },
                                 label = { Text("Regular", fontSize = 12.sp) },
                                 modifier = Modifier.weight(1f)
                             )
                             FilterChip(
-                                selected = selectedCustomization.fontStyle == FontStyle.BOLD,
-                                onClick = { selectedCustomization = selectedCustomization.copy(fontStyle = FontStyle.BOLD) },
+                                selected = selectedCustomization.fontStyle == CustomFontStyle.BOLD,
+                                onClick = { selectedCustomization = selectedCustomization.copy(fontStyle = CustomFontStyle.BOLD) },
                                 label = { Text("Bold", fontSize = 12.sp) },
                                 modifier = Modifier.weight(1f)
                             )
                             FilterChip(
-                                selected = selectedCustomization.fontStyle == FontStyle.EXTRA_BOLD,
-                                onClick = { selectedCustomization = selectedCustomization.copy(fontStyle = FontStyle.EXTRA_BOLD) },
+                                selected = selectedCustomization.fontStyle == CustomFontStyle.EXTRA_BOLD,
+                                onClick = { selectedCustomization = selectedCustomization.copy(fontStyle = CustomFontStyle.EXTRA_BOLD) },
                                 label = { Text("Extra Bold", fontSize = 12.sp) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -579,20 +579,20 @@ fun ShareLyricsImageCustomizationSheet(
                     SettingSection(title = "Text Alignment") {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
-                                selected = selectedCustomization.textAlignment == TextAlignment.LEFT,
-                                onClick = { selectedCustomization = selectedCustomization.copy(textAlignment = TextAlignment.LEFT) },
+                                selected = selectedCustomization.textAlignment == CustomTextAlignment.LEFT,
+                                onClick = { selectedCustomization = selectedCustomization.copy(textAlignment = CustomTextAlignment.LEFT) },
                                 label = { Text("Left", fontSize = 12.sp) },
                                 modifier = Modifier.weight(1f)
                             )
                             FilterChip(
-                                selected = selectedCustomization.textAlignment == TextAlignment.CENTER,
-                                onClick = { selectedCustomization = selectedCustomization.copy(textAlignment = TextAlignment.CENTER) },
+                                selected = selectedCustomization.textAlignment == CustomTextAlignment.CENTER,
+                                onClick = { selectedCustomization = selectedCustomization.copy(textAlignment = CustomTextAlignment.CENTER) },
                                 label = { Text("Center", fontSize = 12.sp) },
                                 modifier = Modifier.weight(1f)
                             )
                             FilterChip(
-                                selected = selectedCustomization.textAlignment == TextAlignment.RIGHT,
-                                onClick = { selectedCustomization = selectedCustomization.copy(textAlignment = TextAlignment.RIGHT) },
+                                selected = selectedCustomization.textAlignment == CustomTextAlignment.RIGHT,
+                                onClick = { selectedCustomization = selectedCustomization.copy(textAlignment = CustomTextAlignment.RIGHT) },
                                 label = { Text("Right", fontSize = 12.sp) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -916,11 +916,6 @@ private fun SwitchSetting(title: String, checked: Boolean, onCheckedChange: (Boo
         Text(text = title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
-}
-
-fun Color.isDark(): Boolean {
-    val luminance = 0.299f * this.red + 0.587f * this.green + 0.114f * this.blue
-    return luminance < 0.5f
 }
 
 @Composable
