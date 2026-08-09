@@ -111,13 +111,13 @@ object LyricsUtils {
         "य" to "y", "र" to "r", "ल" to "l", "व" to "v",
         "श" to "sh", "ष" to "sh", "स" to "s", "ह" to "h",
         "क्ष" to "ksh", "त्र" to "tr", "ज्ञ" to "gy", "श्र" to "shr",
-        "ा" to "aa", "ि" to "i", "ी" to "ee", "ु" to "u", "ू" to "oo",
-        "ृ" to "ri", "े" to "e", "ै" to "ai", "ो" to "o", "ौ" to "au",
+        "ा" to "aa", "ि" to "i", "ी" to "ee", "ੁ" to "u", "ੂ" to "oo",
+        "ृ" to "ri", "े" to "e", "ੈ" to "ai", "ो" to "o", "ौ" to "au",
         "ं" to "n", "ः" to "h", "ँ" to "n", "़" to "", "्" to "",
         "०" to "0", "१" to "1", "२" to "2", "३" to "3", "४" to "4",
         "५" to "5", "६" to "6", "७" to "7", "८" to "8", "९" to "9",
         "ॐ" to "Om", "ऽ" to "",
-        "क़" to "q", "ख़" to "kh", "ग़" to "g", "ਜ਼" to "z", "ੜ" to "r", "ਢ\u093C" to "rh", "ਫ਼" to "f", "य़" to "y",
+        "क़" to "q", "ख़" to "kh", "ग़" to "g", "ਜ਼" to "z", "ड़" to "r", "ढ़" to "rh", "ਫ਼" to "f", "य़" to "y",
         "क\u093C" to "q", "ख\u093C" to "kh", "ग\u093C" to "g", "ज\u093C" to "z", "ड\u093C" to "r", "ढ\u093C" to "rh", "फ\u093C" to "f", "य\u093C" to "y"
     )
 
@@ -168,20 +168,25 @@ object LyricsUtils {
     )
 
     private val UKRAINIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Г" to "H", "г" to "h", "Ґ" to "G", "ґ" to "g", "Є" to "Ye", "є" to "ye",
-        "І" to "I", "і" to "i", "Ї" to "Yi", "ї" to "yi"
+        "Г" to "H", "г" to "h",
+        "Ґ" to "G", "ґ" to "g",
+        "Є" to "Ye", "є" to "ye",
+        "І" to "I", "і" to "i",
+        "Ї" to "Yi", "ї" to "yi"
     )
 
     private val SERBIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Ж" to "Ž", "Љ" to "Lj", "Њ" to "Nj", "Ц" to "C", "Ч" to "Č", "Џ" to "Dž",
-        "Ш" to "Š", "Х" to "H", "ж" to "ž", "љ" to "lj", "њ" to "nj", "ц" to "c",
-        "ч" to "č", "џ" to "dž", "ш" to "š", "х" to "h"
+        "Ж" to "Ž", "Љ" to "Lj", "Њ" to "Nj", "Ц" to "C", "Ч" to "Č",
+        "Џ" to "Dž", "Ш" to "Š", "Х" to "H",
+        "ж" to "ž", "љ" to "lj", "њ" to "nj", "ц" to "c", "ч" to "č",
+        "џ" to "dž", "ш" to "š", "х" to "h"
     )
 
     private val BULGARIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Ж" to "Zh", "Ц" to "Ts", "Ч" to "Ch", "Ш" to "Sh", "Щ" to "Sht", "Ъ" to "A",
-        "Ь" to "Y", "Ю" to "Yu", "Я" to "Ya", "ж" to "zh", "ц" to "ts", "ч" to "ch",
-        "ш" to "sh", "щ" to "sht", "ъ" to "a", "ь" to "y", "ю" to "yu", "я" to "ya"
+        "Ж" to "Zh", "Ц" to "Ts", "Ч" to "Ch", "Ш" to "Sh", "Щ" to "Sht",
+        "Ъ" to "A", "Ь" to "Y", "Ю" to "Yu", "Я" to "Ya",
+        "ж" to "zh", "ц" to "ts", "ч" to "ch", "ш" to "sh", "щ" to "sht",
+        "ъ" to "a", "ь" to "y", "ю" to "yu", "я" to "ya"
     )
 
     private val BELARUSIAN_ROMAJI_MAP: Map<String, String> = mapOf(
@@ -193,27 +198,30 @@ object LyricsUtils {
     )
 
     private val MACEDONIAN_ROMAJI_MAP: Map<String, String> = mapOf(
-        "Ѓ" to "Gj", "Ѕ" to "Dz", "И" to "I", "Ј" to "J", "Љ" to "Lj", "Њ" to "Nj",
-        "Ќ" to "Kj", "Џ" to "Dž", "Ч" to "Č", "Ш" to "Sh", "Ж" to "Zh", "Ц" to "C",
-        "Х" to "H", "ѓ" to "gj", "ѕ" to "dz", "и" to "i", "ј" to "j", "љ" to "lj",
-        "њ" to "nj", "ќ" to "kj", "џ" to "dž", "ч" to "č", "ш" to "sh", "ж" to "zh",
-        "ц" to "c", "х" to "h"
+        "Ѓ" to "Gj", "Ѕ" to "Dz", "И" to "I", "Ј" to "J", "Љ" to "Lj",
+        "Њ" to "Nj", "Ќ" to "Kj", "Џ" to "Dž", "Ч" to "Č", "Ш" to "Sh",
+        "Ж" to "Zh", "Ц" to "C", "Х" to "H",
+        "ѓ" to "gj", "ѕ" to "dz", "и" to "i", "ј" to "j", "љ" to "lj",
+        "њ" to "nj", "ќ" to "kj", "џ" to "dž", "ч" to "č", "ш" to "sh",
+        "ж" to "zh", "ц" to "c", "х" to "h"
     )
 
     private val RUSSIAN_CYRILLIC_LETTERS = setOf(
         "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
         "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь",
-        "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к",
-        "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
-        "ъ", "ы", "ь", "э", "ю", "я"
+        "Э", "Ю", "Я",
+        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н",
+        "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь",
+        "э", "ю", "я"
     )
 
     private val UKRAINIAN_CYRILLIC_LETTERS = setOf(
        "А", "Б", "В", "Г", "Ґ", "Д", "Е", "Є", "Ж", "З", "И", "І", "Ї", "Й",
         "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч",
-        "Ш", "Щ", "Ь", "Ю", "Я", "а", "б", "в", "г", "ґ", "д", "е", "є", "ж", "з",
-        "и", "і", "ї", "й", "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф",
-        "х", "ц", "ч", "ш", "щ", "ь", "ю", "я"
+        "Ш", "Щ", "Ь", "Ю", "Я",
+        "а", "б", "в", "г", "ґ", "д", "е", "є", "ж", "з", "и", "і", "ї", "й",
+        "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч",
+        "ш", "щ", "ь", "ю", "я"
     )
 
     private val SERBIAN_CYRILLIC_LETTERS = setOf(
@@ -224,34 +232,39 @@ object LyricsUtils {
     )
 
     private val BULGARIAN_CYRILLIC_LETTERS = setOf(
-        "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "Й", "К", "Л", "М", "Н", "О",
-        "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ь", "Ю", "Я",
-        "а", "б", "в", "г", "д", "е", "ж", "з", "и", "й", "к", "л", "м", "н", "о",
-        "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ь", "ю", "я"
+        "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "Й", "К", "Л", "М",
+        "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
+        "Ъ", "Ь", "Ю", "Я",
+        "а", "б", "в", "г", "д", "е", "ж", "з", "и", "й", "к", "л", "м",
+        "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
+        "ъ", "ь", "ю", "я"
     )
 
     private val BELARUSIAN_CYRILLIC_LETTERS = setOf(
         "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "І", "Й", "К", "Л", "М", "Н",
         "О", "П", "Р", "С", "Т", "У", "Ў", "Ф", "Х", "Ц", "Ч", "Ш", "Ь", "Ю", "Я",
-        "Ы", "Э", "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "і", "й", "к", "л",
-        "м", "н", "о", "п", "р", "с", "т", "у", "ў", "ф", "х", "ц", "ч", "ш", "ь",
-        "ю", "я", "ы", "э"
+        "Ы", "Э",
+        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "і", "й", "к", "л", "м", "н",
+        "о", "п", "р", "с", "т", "у", "ў", "ф", "х", "ц", "ч", "ш", "ь", "ю", "я",
+        "ы", "э"
     )
 
     private val KYRGYZ_CYRILLIC_LETTERS = setOf(
         "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
         "Ң", "О", "Ө", "П", "Р", "С", "Т", "У", "Ү", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
-        "Ъ", "Ы", "Ь", "Э", "Ю", "Я", "а", "б", "в", "г", "д", "е", "ё", "ж", "з",
-        "и", "й", "к", "л", "м", "н", "ң", "о", "ө", "п", "р", "с", "т", "у", "ү",
-        "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю", "я"
+        "Ъ", "Ы", "Ь", "Э", "Ю", "Я",
+        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н",
+        "ң", "о", "ө", "п", "р", "с", "т", "у", "ү", "ф", "х", "ц", "ч", "ш", "щ",
+        "ъ", "ы", "ь", "э", "ю", "я"
     )
 
     private val MACEDONIAN_CYRILLIC_LETTERS = setOf(
-        "А", "Б", "В", "Г", "Д", "Ѓ", "Е", "Ж", "З", "Ѕ", "И", "Ј", "К", "Л", "Љ",
-        "М", "Н", "Њ", "О", "П", "Р", "С", "Т", "Ќ", "У", "Ф", "Х", "Ц", "Ч", "Џ",
-        "Ш", "а", "б", "в", "г", "д", "ѓ", "е", "ж", "з", "ѕ", "и", "ј", "к", "л",
-        "љ", "м", "н", "њ", "о", "п", "р", "с", "т", "ќ", "у", "ф", "х", "ц", "ч",
-        "џ", "ш"
+        "А", "Б", "В", "Г", "Д", "Ѓ", "Е", "Ж", "З", "Ѕ", "И", "Ј", "К", "Л",
+        "Љ", "М", "Н", "Њ", "О", "П", "Р", "С", "Т", "Ќ", "У", "Ф", "Х",
+        "Ц", "Ч", "Џ", "Ш",
+        "а", "б", "в", "г", "д", "ѓ", "е", "ж", "з", "ѕ", "и", "ј", "к", "л",
+        "љ", "м", "н", "њ", "о", "п", "р", "с", "т", "ќ", "у", "ф", "х",
+        "ц", "ч", "џ", "ш"
     )
 
     private val UKRAINIAN_SPECIFIC_CYRILLIC_LETTERS = setOf("Ґ", "ґ", "Є", "є", "І", "і", "Ї", "ї")
@@ -642,6 +655,16 @@ object LyricsUtils {
         return lines.lastIndex
     }
 
+    private fun LyricsEntry.isSecondaryOrBackground(): Boolean {
+        if (isBackground) return true
+        val a = agent?.lowercase(Locale.getDefault()) ?: return false
+        return a == "v2" || a == "bg" || a.contains("background") || a.contains("sub")
+    }
+
+    private fun LyricsEntry.isMainVocal(): Boolean {
+        return !isSecondaryOrBackground()
+    }
+
     fun findActiveLineIndices(
         lines: List<LyricsEntry>,
         position: Long,
@@ -651,56 +674,62 @@ object LyricsUtils {
         val targetTime = position + threshold
 
         val activeIndices = mutableSetOf<Int>()
-        var latestMainIndex = -1
-        val bgToMainMap = mutableMapOf<Int, Int>()
+        var activeMainIndex = -1
 
+        // 1. Find the latest main vocal line that has started (time <= targetTime)
         for (i in lines.indices) {
             val line = lines[i]
             if (line.time <= targetTime) {
-                if (!line.isBackground) {
-                    latestMainIndex = i
-                } else {
-                    bgToMainMap[i] = latestMainIndex
-                }
-
-                if (line.words != null && line.words.isNotEmpty()) {
-                    val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
-                    if (targetTime <= lineEndTimeMs + 300L) {
-                        activeIndices.add(i)
-                    }
-                } else {
-                    // Line synced
-                    var nextLineTime = line.time + 6000L
-                    for (j in i + 1 until lines.size) {
-                        if (lines[j].isBackground == line.isBackground && lines[j].agent == line.agent) {
-                            nextLineTime = lines[j].time
-                            break
-                        }
-                    }
-                    val maxEndTime = kotlin.math.min(nextLineTime, line.time + 8000L)
-                    if (targetTime < maxEndTime) {
-                        activeIndices.add(i)
-                    }
+                if (line.isMainVocal()) {
+                    activeMainIndex = i
                 }
             } else {
                 break
             }
         }
 
-        val mainLinesToActivate = mutableSetOf<Int>()
-        for (idx in activeIndices) {
-            if (lines[idx].isBackground) {
-                val mainIdx = bgToMainMap[idx]
-                if (mainIdx != null && mainIdx != -1) {
-                    mainLinesToActivate.add(mainIdx)
-                }
-            }
+        // If we found an active main line, add it
+        if (activeMainIndex != -1) {
+            activeIndices.add(activeMainIndex)
         }
-        activeIndices.addAll(mainLinesToActivate)
 
-        // Always keep the latest main line active if nothing else is active
-        if (activeIndices.none { !lines[it].isBackground } && latestMainIndex != -1) {
-            activeIndices.add(latestMainIndex)
+        // 2. Check all lines to see if any secondary/background vocals or overlapping lines are currently active
+        for (i in lines.indices) {
+            val line = lines[i]
+            if (line.time <= targetTime) {
+                if (line.isSecondaryOrBackground()) {
+                    // Check if background line is currently active
+                    if (line.words != null && line.words.isNotEmpty()) {
+                        val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
+                        if (targetTime <= lineEndTimeMs + 500L) {
+                            activeIndices.add(i)
+                        }
+                    } else {
+                        // Line-synced background vocal
+                        var nextSameAgentTime = line.time + 6000L
+                        for (j in i + 1 until lines.size) {
+                            if (lines[j].agent == line.agent || lines[j].isBackground) {
+                                nextSameAgentTime = lines[j].time
+                                break
+                            }
+                        }
+                        val maxEndTime = kotlin.math.min(nextSameAgentTime, line.time + 8000L)
+                        if (targetTime < maxEndTime) {
+                            activeIndices.add(i)
+                        }
+                    }
+                } else if (i != activeMainIndex) {
+                    // Another main vocal line (e.g. previous main line that is still singing due to long hold or overlap)
+                    if (line.words != null && line.words.isNotEmpty()) {
+                        val lineEndTimeMs = (line.words.last().endTime * 1000).toLong()
+                        if (targetTime <= lineEndTimeMs + 300L) {
+                            activeIndices.add(i)
+                        }
+                    }
+                }
+            } else {
+                break
+            }
         }
 
         return activeIndices
