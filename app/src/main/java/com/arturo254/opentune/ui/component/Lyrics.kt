@@ -168,6 +168,7 @@ import com.arturo254.opentune.constants.LyricsScrollKey
 import com.arturo254.opentune.constants.LyricsTextPositionKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
+import com.arturo254.opentune.constants.RomanizeLyricsKey
 import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SliderStyle
 import com.arturo254.opentune.constants.SliderStyleKey
@@ -257,6 +258,7 @@ fun Lyrics(
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val animateLyrics by rememberPreference(AnimateLyricsKey, true)
+    val romanizeLyrics by rememberPreference(RomanizeLyricsKey, defaultValue = false)
 
     val rotateBackground by rememberPreference(RotateBackgroundKey, defaultValue = false)
 
@@ -292,12 +294,36 @@ fun Lyrics(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
-    var lyricsCache by remember { mutableStateOf<Map<String, LyricsEntity>>(emptyMap()) }
-    var currentLyricsEntity by remember(currentSongId) { mutableStateOf<LyricsEntity?>(lyricsCache[currentSongId]) }
-    var isLoadingLyrics by remember(currentSongId) { mutableStateOf(false) }
+    val dbLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
+    var fetchedLyrics by remember { mutableStateOf<String?>(null) }
+    var isLoadingLyrics by remember { mutableStateOf(false) }
 
-    val lyricsEntity by playerConnection.currentLyrics.collectAsState(initial = null)
-    val lyrics = remember(lyricsEntity, currentLyricsEntity) { currentLyricsEntity?.lyrics?.trim() ?: lyricsEntity?.lyrics?.trim() }
+    LaunchedEffect(currentSongId, dbLyrics) {
+        if (currentSongId == null) return@LaunchedEffect
+
+        if (dbLyrics != null && dbLyrics!!.id == currentSongId) {
+            fetchedLyrics = dbLyrics!!.lyrics
+            isLoadingLyrics = false
+        } else if (dbLyrics == null) {
+            isLoadingLyrics = true
+            fetchedLyrics = null
+            withContext(Dispatchers.IO) {
+                try {
+                    val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, com.arturo254.opentune.di.LyricsHelperEntryPoint::class.java)
+                    val fetched = currentMetadata?.let { entryPoint.lyricsHelper().getLyrics(it) }
+                    val finalLyrics = if (!fetched.isNullOrBlank()) fetched else LYRICS_NOT_FOUND
+                    database.query { upsert(LyricsEntity(currentSongId, finalLyrics)) }
+                    fetchedLyrics = finalLyrics
+                } catch (e: Exception) {
+                    fetchedLyrics = LYRICS_NOT_FOUND
+                } finally {
+                    isLoadingLyrics = false
+                }
+            }
+        }
+    }
+
+    val lyrics = fetchedLyrics?.trim()
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -351,44 +377,6 @@ fun Lyrics(
         }
     }
 
-    LaunchedEffect(currentSongId) {
-        currentSongId?.let { songId ->
-            if (lyricsCache.containsKey(songId)) {
-                currentLyricsEntity = lyricsCache[songId]
-                return@LaunchedEffect
-            }
-            isLoadingLyrics = true
-            withContext(Dispatchers.IO) {
-                try {
-                    val existingLyrics = try { database.getLyrics(songId) } catch (e: Throwable) { null }
-                    if (existingLyrics != null) {
-                        lyricsCache = lyricsCache.toMutableMap().apply { put(songId, existingLyrics) }
-                        currentLyricsEntity = existingLyrics
-                    } else {
-                        try {
-                            val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, com.arturo254.opentune.di.LyricsHelperEntryPoint::class.java)
-                            val fetchedLyrics = currentMetadata.let { entryPoint.lyricsHelper().getLyrics(it) }
-                            val entity = if (!fetchedLyrics.isNullOrBlank()) LyricsEntity(songId, fetchedLyrics) else LyricsEntity(songId, LYRICS_NOT_FOUND)
-                            try { database.query { upsert(entity) } } catch (e: Throwable) {}
-                            lyricsCache = lyricsCache.toMutableMap().apply { put(songId, entity) }
-                            currentLyricsEntity = entity
-                        } catch (e: Throwable) {
-                            val errorEntity = LyricsEntity(songId, LYRICS_NOT_FOUND)
-                            lyricsCache = lyricsCache.toMutableMap().apply { put(songId, errorEntity) }
-                            currentLyricsEntity = errorEntity
-                        }
-                    }
-                } catch (e: Exception) {
-                    val errorEntity = LyricsEntity(songId, LYRICS_NOT_FOUND)
-                    lyricsCache = lyricsCache.toMutableMap().apply { put(songId, errorEntity) }
-                    currentLyricsEntity = errorEntity
-                } finally {
-                    isLoadingLyrics = false
-                }
-            }
-        }
-    }
-
     val lines = remember(lyrics, scope) {
         if (lyrics == null || lyrics == LYRICS_NOT_FOUND) {
             emptyList()
@@ -398,6 +386,29 @@ fun Lyrics(
         } else {
             lyrics.lines().mapIndexed { index, line ->
                 LyricsEntry(index * 100L, line)
+            }
+        }
+    }
+
+    LaunchedEffect(lines, romanizeLyrics) {
+        if (romanizeLyrics && lines.isNotEmpty() && lyrics != null) {
+            val enabledLangs = listOf("Japanese", "Korean", "Chinese", "Hindi", "Ukrainian", "Russian", "Serbian", "Bulgarian", "Belarusian", "Kyrgyz", "Macedonian")
+            for (line in lines) {
+                if (line.text.isNotBlank()) {
+                    launch(Dispatchers.Default) {
+                        val romanized = com.arturo254.opentune.lyrics.LyricsUtils.romanize(
+                            text = lyrics,
+                            line = line.text,
+                            enabledLanguages = enabledLangs,
+                            romanizeCyrillicByLine = false
+                        )
+                        line.romanizedTextFlow.value = romanized
+                    }
+                }
+            }
+        } else if (!romanizeLyrics) {
+            for (line in lines) {
+                line.romanizedTextFlow.value = null
             }
         }
     }
@@ -617,7 +628,7 @@ fun Lyrics(
                                     displayedCurrentLineIndex = displayedCurrentLineIndex,
                                     romanizeAsMain = false,
                                     enabledLanguages = emptyList(),
-                                    romanizeLyrics = false,
+                                    romanizeLyrics = romanizeLyrics,
                                     onSizeChanged = { },
                                     onClick = {
                                         if (isSelectionModeActive) {
@@ -724,7 +735,7 @@ fun Lyrics(
                         Box(modifier = Modifier.size(32.dp).clickable { playerConnection.toggleLike() }, contentAlignment = Alignment.Center) {
                             Icon(painterResource(if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border), null, tint = if (currentSong?.song?.liked == true) MaterialTheme.colorScheme.error else textBackgroundColor.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
                         }
-                        Box(modifier = Modifier.size(32.dp).clickable { currentMetadata?.let { menuState.show { LyricsMenu(lyricsProvider = { currentLyricsEntity }, mediaMetadataProvider = { it }, onDismiss = menuState::dismiss) } } }, contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.size(32.dp).clickable { currentMetadata?.let { menuState.show { LyricsMenu(lyricsProvider = { dbLyrics }, mediaMetadataProvider = { it }, onDismiss = menuState::dismiss) } } }, contentAlignment = Alignment.Center) {
                             Icon(painterResource(R.drawable.more_horiz), null, tint = textBackgroundColor, modifier = Modifier.size(20.dp))
                         }
                     }
@@ -922,7 +933,7 @@ internal fun LyricsLine(
                     Text(text = mainText ?: "", style = lyricStyle.copy(color = if (isActiveLine) expressiveAccent else lineColor), modifier = Modifier.fillMaxWidth())
                 }
                 
-                if (romanizeLyrics && enabledLanguages.isNotEmpty()) {
+                if (romanizeLyrics) {
                     subText?.let { Text(text = it, fontSize = 18.sp, color = expressiveAccent.copy(alpha = 0.6f), textAlign = agentTextAlign, fontWeight = FontWeight.Normal, modifier = Modifier.padding(top = 2.dp)) }
                 }
                 val transText by item.translatedTextFlow.collectAsState()
