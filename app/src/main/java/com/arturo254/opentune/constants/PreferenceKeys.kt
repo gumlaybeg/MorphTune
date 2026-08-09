@@ -120,7 +120,11 @@ val PlaylistViewTypeKey = stringPreferencesKey("playlistViewType")
 
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val QuickPicksKey = stringPreferencesKey("discover")
-val PreferredLyricsProviderKey = stringPreferencesKey("lyricsProvider")
+
+val LyricsProviderPriorityKey = stringPreferencesKey("lyricsProviderPriority")
+const val DefaultLyricsProviderPriority = "LyricsPlus,Paxsenix,LrcLib,KuGou"
+val RomanizeLyricsKey = booleanPreferencesKey("romanizeLyrics")
+
 val QueueEditLockKey = booleanPreferencesKey("queueEditLock")
 
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
@@ -269,13 +273,6 @@ enum class MyTopFilter {
 enum class QuickPicks {
     QUICK_PICKS,
     LAST_LISTEN,
-}
-
-enum class PreferredLyricsProvider {
-    LRCLIB,
-    KUGOU,
-    LYRICS_PLUS,
-    PAXSENIX,
 }
 
 enum class PlayerBackgroundStyle {
