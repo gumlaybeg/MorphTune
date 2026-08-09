@@ -264,7 +264,7 @@ fun ContentSettings(
                 {PreferenceEntry(
                     title = { Text("Lyrics Provider Priority") },
                     description = providerPriority.replace(",", " > "),
-                    icon = { Icon(painterResource(R.drawable.sort), null) },
+                    icon = { Icon(painterResource(R.drawable.list), null) },
                     onClick = { showPriorityDialog = true }
                 )},
                 {SwitchPreference(
