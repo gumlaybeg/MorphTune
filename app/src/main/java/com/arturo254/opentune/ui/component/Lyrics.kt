@@ -15,8 +15,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -25,6 +23,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -117,6 +116,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -149,6 +149,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -800,8 +801,7 @@ fun Lyrics(
                                             alignment = dotsAlignment,
                                             startTimeMs = displayItem.startTimeMs.toInt(),
                                             endTimeMs = displayItem.endTimeMs.toInt(),
-                                            currentTimeProvider = { (position + 0L).toInt() },
-                                            isPlaying = isPlaying,
+                                            playerConnection = playerConnection,
                                             defaults = KaraokeBreathingDotsDefaults(
                                                 breathingDotsColor = expressiveAccent
                                             ),
@@ -975,6 +975,8 @@ fun Lyrics(
     }
 }
 
+private val layerPaint = Paint()
+
 private data class BreathingDotsTimeline(
     val enterEnd: Float,
     val dipStart: Float,
@@ -999,8 +1001,7 @@ fun KaraokeBreathingDots(
     alignment: Alignment = Alignment.Center,
     startTimeMs: Int,
     endTimeMs: Int,
-    currentTimeProvider: () -> Int,
-    isPlaying: Boolean = true,
+    playerConnection: PlayerConnection,
     modifier: Modifier = Modifier,
     defaults: KaraokeBreathingDotsDefaults = KaraokeBreathingDotsDefaults(),
 ) {
@@ -1037,22 +1038,27 @@ fun KaraokeBreathingDots(
         )
     }
 
-    var smoothTimeMs by remember(startTimeMs, endTimeMs) { mutableFloatStateOf(currentTimeProvider().toFloat()) }
+    var smoothPosition by remember { mutableFloatStateOf(playerConnection.player.currentPosition.toFloat()) }
+    val isPlaying by playerConnection.isPlaying.collectAsState()
 
-    LaunchedEffect(startTimeMs, endTimeMs, isPlaying) {
-        var lastRawPos = currentTimeProvider().toLong()
-        var lastFrameTime = System.currentTimeMillis()
-        while (isActive) {
-            withFrameMillis {
-                val now = System.currentTimeMillis()
-                val rawPos = currentTimeProvider().toLong()
-                if (abs(rawPos - lastRawPos) > 200) {
-                    lastRawPos = rawPos
-                    lastFrameTime = now
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            var lastPlayerPos = playerConnection.player.currentPosition
+            var lastUpdateTime = System.currentTimeMillis()
+            while (isActive) {
+                withFrameMillis { _ ->
+                    val now = System.currentTimeMillis()
+                    val playerPos = playerConnection.player.currentPosition
+                    if (playerPos != lastPlayerPos) {
+                        lastPlayerPos = playerPos
+                        lastUpdateTime = now
+                    }
+                    val elapsed = now - lastUpdateTime
+                    smoothPosition = (lastPlayerPos + elapsed).toFloat()
                 }
-                val elapsed = if (isPlaying) (now - lastFrameTime) else 0L
-                smoothTimeMs = (lastRawPos + elapsed).toFloat()
             }
+        } else {
+            smoothPosition = playerConnection.player.currentPosition.toFloat()
         }
     }
 
@@ -1068,7 +1074,7 @@ fun KaraokeBreathingDots(
         ) {
             if (totalWidthPx <= 0f) return@Canvas
 
-            val currentTime = smoothTimeMs
+            val currentTime = smoothPosition
             var scale: Float
             var alpha: Float
             var revealProgress: Float
@@ -1086,15 +1092,15 @@ fun KaraokeBreathingDots(
                     alpha = 1f
                     revealProgress = 1f
                     val timeInPhase = currentTime - timeline.enterEnd
-                    val angle = (timeInPhase / 3000f) * 2 * PI
-                    scale = 0.9f - 0.1f * cos(angle.toFloat())
+                    val angle = (timeInPhase / 3000f) * 2f * kotlin.math.PI.toFloat()
+                    scale = 0.9f - 0.1f * kotlin.math.cos(angle)
                 }
                 // Stage 3: Pre-exit
                 currentTime < timeline.stillStart -> {
                     alpha = 1f
                     revealProgress = 1f
                     val progress = ((currentTime - timeline.dipStart) / (timeline.stillStart - timeline.dipStart).coerceAtLeast(1f)).coerceIn(0f, 1f)
-                    scale = 0.8f + 0.2f * cos(progress * 2 * PI).toFloat()
+                    scale = 0.8f + 0.2f * kotlin.math.cos(progress * 2f * kotlin.math.PI.toFloat())
                 }
                 // Stage 4: Still
                 currentTime < timeline.exitStart -> {
@@ -1112,40 +1118,42 @@ fun KaraokeBreathingDots(
                 }
             }
 
-            val circleRadius = sizePx / 2f
-            val pivotX = totalWidthPx / 2f
-            val pivotY = sizePx / 2f
+            drawIntoCanvas { canvas ->
+                canvas.saveLayer(androidx.compose.ui.geometry.Rect(Offset.Zero, Size(totalWidthPx, sizePx)), layerPaint)
 
-            repeat(defaults.number) { index ->
-                val dotCenter = sizePx / 2f + (sizePx + marginPx) * index
-                val dotNormPos = dotCenter / totalWidthPx
+                withTransform({
+                    this.scale(scale = scale, pivot = Offset(totalWidthPx / 2f, sizePx / 2f))
+                }) {
+                    repeat(defaults.number) { index ->
+                        val dotAlpha = if (timeline.breathingDuration > 0 && currentTime >= timeline.enterEnd) {
+                            val dotDuration = timeline.breathingDuration / defaults.number
+                            val dotStart = timeline.enterEnd + (index * dotDuration)
+                            ((currentTime - dotStart) / dotDuration).coerceIn(0f, 1f) * 0.6f + 0.4f
+                        } else {
+                            0.4f
+                        }
 
-                val dotBaseAlpha = if (timeline.breathingDuration > 0 && currentTime >= timeline.enterEnd) {
-                    val dotDuration = timeline.breathingDuration / defaults.number
-                    val dotStart = timeline.enterEnd + (index * dotDuration)
-                    ((currentTime - dotStart) / dotDuration).coerceIn(0f, 1f) * 0.6f + 0.4f
-                } else {
-                    0.4f
+                        drawCircle(
+                            color = defaults.breathingDotsColor.copy(alpha = (dotAlpha * alpha).coerceIn(0f, 1f)),
+                            radius = sizePx / 2,
+                            center = Offset(sizePx / 2 + (sizePx + marginPx) * index, sizePx / 2)
+                        )
+                    }
                 }
 
-                val revealFactor = if (revealProgress < 1f) {
-                    ((revealProgress - dotNormPos + 0.3f) / 0.3f).coerceIn(0f, 1f)
-                } else {
-                    1f
-                }
-
-                val finalAlpha = (dotBaseAlpha * alpha * revealFactor).coerceIn(0f, 1f)
-
-                if (finalAlpha > 0f) {
-                    val scaledRadius = circleRadius * scale
-                    val scaledCenterX = pivotX + (dotCenter - pivotX) * scale
-
-                    drawCircle(
-                        color = defaults.breathingDotsColor.copy(alpha = finalAlpha),
-                        radius = scaledRadius,
-                        center = Offset(scaledCenterX, pivotY)
+                val softEdgeWidth = 0.5f
+                val revealPos = revealProgress * (1f + softEdgeWidth)
+                val brush = Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0f to Color.Black,
+                        (revealPos - softEdgeWidth).coerceIn(0f, 1f) to Color.Black,
+                        revealPos.coerceIn(0f, 1f) to Color.Transparent,
+                        1f to Color.Transparent
                     )
-                }
+                )
+                drawRect(brush = brush, blendMode = BlendMode.DstIn)
+
+                canvas.restore()
             }
         }
     }
