@@ -143,6 +143,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -316,23 +317,26 @@ fun Lyrics(
     LaunchedEffect(currentSongId) {
         if (currentSongId == null) return@LaunchedEffect
 
+        fetchedLyrics = null
+        isLoadingLyrics = true
+
         playerConnection.currentLyrics.collect { currentDbLyrics ->
             if (currentDbLyrics != null && currentDbLyrics.id == currentSongId) {
                 fetchedLyrics = currentDbLyrics.lyrics
                 isLoadingLyrics = false
-            } else if (currentDbLyrics == null) {
-                isLoadingLyrics = true
-                fetchedLyrics = null
+            } else {
                 withContext(Dispatchers.IO) {
                     try {
-                        val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, com.arturo254.opentune.di.LyricsHelperEntryPoint::class.java)
+                        val entryPoint = EntryPointAccessors.fromApplication(
+                            context.applicationContext, 
+                            com.arturo254.opentune.di.LyricsHelperEntryPoint::class.java
+                        )
                         val fetched = currentMetadata?.let { entryPoint.lyricsHelper().getLyrics(it) }
                         val finalLyrics = if (!fetched.isNullOrBlank()) fetched else LYRICS_NOT_FOUND
+                        
                         database.query { upsert(LyricsEntity(currentSongId, finalLyrics)) }
-                        fetchedLyrics = finalLyrics
                     } catch (e: Exception) {
                         fetchedLyrics = LYRICS_NOT_FOUND
-                    } finally {
                         isLoadingLyrics = false
                     }
                 }
