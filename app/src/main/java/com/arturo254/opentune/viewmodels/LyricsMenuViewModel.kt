@@ -6,14 +6,12 @@ import com.arturo254.opentune.db.MusicDatabase
 import com.arturo254.opentune.db.entities.LyricsEntity
 import com.arturo254.opentune.lyrics.LyricsHelper
 import com.arturo254.opentune.lyrics.LyricsResult
-import com.arturo254.opentune.models.MediaMetadata
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @HiltViewModel
@@ -53,16 +51,10 @@ constructor(
     }
 
     fun refetchLyrics(
-        mediaMetadata: MediaMetadata,
         lyricsEntity: LyricsEntity?,
     ) {
         database.query {
             lyricsEntity?.let(::delete)
-            val lyrics =
-                runBlocking {
-                    lyricsHelper.getLyrics(mediaMetadata)
-                }
-            upsert(LyricsEntity(mediaMetadata.id, lyrics))
         }
     }
 }
