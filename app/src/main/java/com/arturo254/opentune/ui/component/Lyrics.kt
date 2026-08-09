@@ -12,9 +12,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,7 +22,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -38,6 +40,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,10 +50,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -58,8 +64,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -86,10 +94,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -100,7 +113,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -110,8 +122,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -119,11 +134,15 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -131,8 +150,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.palette.graphics.Palette
+import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.imageLoader
+import coil.compose.rememberAsyncImagePainter
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalPlayerConnection
@@ -154,11 +176,11 @@ import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
 import com.arturo254.opentune.lyrics.WordTimestamp
 import com.arturo254.opentune.playback.PlayerConnection
-import com.arturo254.opentune.ui.component.shimmer.ContainedLoadingIndicator
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
 import com.arturo254.opentune.ui.utils.fadingEdge
+import com.arturo254.opentune.utils.ComposeToImage
 import com.arturo254.opentune.utils.makeTimeString
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
@@ -206,7 +228,7 @@ private fun String.toGraphemeClusters(): List<String> {
 }
 
 @RequiresApi(Build.VERSION_CODES.M)
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @SuppressLint("UnusedBoxWithConstraintsScope", "StringFormatInvalid", "LocalContextGetResourceValueCall")
 @Composable
 fun Lyrics(
@@ -523,9 +545,9 @@ fun Lyrics(
                                 val c1 = gradientColors[0]; val c2 = gradientColors.getOrElse(1) { c1.copy(alpha = 0.8f) }; val c3 = gradientColors.getOrElse(2) { c1.copy(alpha = 0.6f) }
                                 Canvas(modifier = Modifier.fillMaxSize().blur(100.dp)) {
                                     drawRect(Brush.verticalGradient(listOf(c1, c2, c3)))
-                                    drawCircle(brush = Brush.radialGradient(listOf(c1, Color.Transparent), Offset(size.width*0.2f, size.height*0.2f), size.width*0.8f), center = Offset(size.width*0.2f, size.height*0.2f), radius = size.width*0.8f)
-                                    drawCircle(brush = Brush.radialGradient(listOf(c2, Color.Transparent), Offset(size.width*0.8f, size.height*0.5f), size.width*0.7f), center = Offset(size.width*0.8f, size.height*0.5f), radius = size.width*0.7f)
-                                    drawCircle(brush = Brush.radialGradient(listOf(c3, Color.Transparent), Offset(size.width*0.3f, size.height*0.8f), size.width*0.9f), center = Offset(size.width*0.3f, size.height*0.8f), radius = size.width*0.9f)
+                                    drawCircle(Brush.radialGradient(listOf(c1, Color.Transparent), Offset(size.width*0.2f, size.height*0.2f), size.width*0.8f), size.width*0.8f, Offset(size.width*0.2f, size.height*0.2f))
+                                    drawCircle(Brush.radialGradient(listOf(c2, Color.Transparent), Offset(size.width*0.8f, size.height*0.5f), size.width*0.7f), size.width*0.7f, Offset(size.width*0.8f, size.height*0.5f))
+                                    drawCircle(Brush.radialGradient(listOf(c3, Color.Transparent), Offset(size.width*0.3f, size.height*0.8f), size.width*0.9f), size.width*0.9f, Offset(size.width*0.3f, size.height*0.8f))
                                 }
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
                             }
@@ -540,7 +562,7 @@ fun Lyrics(
         Column(modifier = Modifier.fillMaxSize().padding(WindowInsets.systemBars.asPaddingValues())) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp), contentAlignment = Alignment.TopCenter) {
                 BoxWithConstraints(contentAlignment = Alignment.TopStart, modifier = Modifier.fillMaxSize()) {
-                    val topPadding = with(density) { 100.dp + WindowInsets.systemBars.asPaddingValues().calculateTopPadding() }
+                    val topPadding = with(density) { 100.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding() }
                     
                     LazyColumn(
                         state = lazyListState,
@@ -556,7 +578,7 @@ fun Lyrics(
                                     contentAlignment = when (lyricsTextPosition) { LyricsPosition.LEFT -> Alignment.CenterStart; LyricsPosition.CENTER -> Alignment.Center; else -> Alignment.CenterEnd }
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        ContainedLoadingIndicator(modifier = Modifier.size(56.dp), containerColor = expressiveAccent.copy(alpha = 0.15f), indicatorColor = expressiveAccent)
+                                        androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(56.dp), color = expressiveAccent)
                                     }
                                 }
                             }
@@ -671,11 +693,7 @@ fun Lyrics(
                                 currentMetadata?.let { AsyncImage(model = it.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                                 val overlayAlpha by androidx.compose.animation.core.animateFloatAsState(if (isPlaying) 0.4f else 0.4f, label = "overlay_alpha")
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = overlayAlpha)))
-                                androidx.compose.animation.AnimatedVisibility(
-                                    visible = playbackState == Player.STATE_ENDED || !isPlaying || isPlaying,
-                                    enter = fadeIn(),
-                                    exit = fadeOut()
-                                ) {
+                                androidx.compose.animation.AnimatedVisibility(visible = playbackState == Player.STATE_ENDED || !isPlaying || isPlaying, enter = fadeIn(), exit = fadeOut()) {
                                     Icon(painterResource(if (playbackState == Player.STATE_ENDED) R.drawable.replay else if (isPlaying) R.drawable.pause else R.drawable.play), null, tint = Color.White, modifier = Modifier.size(24.dp))
                                 }
                             }
@@ -704,7 +722,7 @@ fun Lyrics(
                 when (sliderStyle) {
                     SliderStyle.DEFAULT -> Slider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), thumbColor = textBackgroundColor), modifier = Modifier.padding(horizontal = 16.dp))
                     SliderStyle.SQUIGGLY -> SquigglySlider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), thumbColor = textBackgroundColor), modifier = Modifier.padding(horizontal = 16.dp), squigglesSpec = SquigglySlider.SquigglesSpec(amplitude = if (isPlaying) 4.dp else 0.dp, strokeWidth = 3.dp, wavelength = 36.dp))
-                    SliderStyle.SLIM -> Slider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f)), thumb = { Spacer(Modifier.size(0.dp)) }, track = { sliderState -> PlayerSliderTrack(sliderState = sliderState, colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f))) }, modifier = Modifier.padding(horizontal = 16.dp))
+                    SliderStyle.SLIM -> Slider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f)), thumb = { Spacer(Modifier.size(0.dp)) }, modifier = Modifier.padding(horizontal = 16.dp))
                 }
                 Spacer(Modifier.height(4.dp))
                 Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
