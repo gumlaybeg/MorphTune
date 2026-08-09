@@ -47,7 +47,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -93,6 +92,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
@@ -153,6 +154,7 @@ import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
 import com.arturo254.opentune.lyrics.WordTimestamp
 import com.arturo254.opentune.playback.PlayerConnection
+import com.arturo254.opentune.ui.component.shimmer.ContainedLoadingIndicator
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
@@ -538,7 +540,7 @@ fun Lyrics(
         Column(modifier = Modifier.fillMaxSize().padding(WindowInsets.systemBars.asPaddingValues())) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp), contentAlignment = Alignment.TopCenter) {
                 BoxWithConstraints(contentAlignment = Alignment.TopStart, modifier = Modifier.fillMaxSize()) {
-                    val topPadding = with(density) { 100.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding() }
+                    val topPadding = with(density) { 100.dp + WindowInsets.systemBars.asPaddingValues().calculateTopPadding() }
                     
                     LazyColumn(
                         state = lazyListState,
@@ -554,7 +556,7 @@ fun Lyrics(
                                     contentAlignment = when (lyricsTextPosition) { LyricsPosition.LEFT -> Alignment.CenterStart; LyricsPosition.CENTER -> Alignment.Center; else -> Alignment.CenterEnd }
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        CircularProgressIndicator(modifier = Modifier.size(56.dp), color = expressiveAccent, trackColor = expressiveAccent.copy(alpha = 0.15f))
+                                        ContainedLoadingIndicator(modifier = Modifier.size(56.dp), containerColor = expressiveAccent.copy(alpha = 0.15f), indicatorColor = expressiveAccent)
                                     }
                                 }
                             }
@@ -667,9 +669,13 @@ fun Lyrics(
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }.fillMaxWidth()) {
                             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).clickable { if (playbackState == Player.STATE_ENDED) { playerConnection.player.seekTo(0, 0); playerConnection.player.playWhenReady = true } else { if (isPlaying) playerConnection.player.pause() else playerConnection.player.play() } }) {
                                 currentMetadata?.let { AsyncImage(model = it.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
-                                val overlayAlpha by animateFloatAsState(if (isPlaying) 0.4f else 0.4f, label = "overlay_alpha")
+                                val overlayAlpha by androidx.compose.animation.core.animateFloatAsState(if (isPlaying) 0.4f else 0.4f, label = "overlay_alpha")
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = overlayAlpha)))
-                                AnimatedVisibility(visible = playbackState == Player.STATE_ENDED || !isPlaying || isPlaying, enter = fadeIn(), exit = fadeOut()) {
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = playbackState == Player.STATE_ENDED || !isPlaying || isPlaying,
+                                    enter = fadeIn(),
+                                    exit = fadeOut()
+                                ) {
                                     Icon(painterResource(if (playbackState == Player.STATE_ENDED) R.drawable.replay else if (isPlaying) R.drawable.pause else R.drawable.play), null, tint = Color.White, modifier = Modifier.size(24.dp))
                                 }
                             }
@@ -696,71 +702,9 @@ fun Lyrics(
 
                 Spacer(Modifier.height(12.dp))
                 when (sliderStyle) {
-                    SliderStyle.DEFAULT -> {
-                        Slider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = { 
-                                sliderPosition?.let { 
-                                    playerConnection.player.seekTo(it)
-                                    position = it 
-                                }
-                                sliderPosition = null 
-                            },
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor, 
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), 
-                                thumbColor = textBackgroundColor
-                            ),
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
-                    SliderStyle.SQUIGGLY -> {
-                        SquigglySlider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = { 
-                                sliderPosition?.let { 
-                                    playerConnection.player.seekTo(it)
-                                    position = it 
-                                }
-                                sliderPosition = null 
-                            },
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor, 
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), 
-                                thumbColor = textBackgroundColor
-                            ),
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            squigglesSpec = SquigglySlider.SquigglesSpec(
-                                amplitude = if (isPlaying) 4.dp else 0.dp, 
-                                strokeWidth = 3.dp, 
-                                wavelength = 36.dp
-                            )
-                        )
-                    }
-                    SliderStyle.SLIM -> {
-                        Slider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = { 
-                                sliderPosition?.let { 
-                                    playerConnection.player.seekTo(it)
-                                    position = it 
-                                }
-                                sliderPosition = null 
-                            },
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor, 
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), 
-                                thumbColor = Color.Transparent
-                            ),
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
+                    SliderStyle.DEFAULT -> Slider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), thumbColor = textBackgroundColor), modifier = Modifier.padding(horizontal = 16.dp))
+                    SliderStyle.SQUIGGLY -> SquigglySlider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f), thumbColor = textBackgroundColor), modifier = Modifier.padding(horizontal = 16.dp), squigglesSpec = SquigglySlider.SquigglesSpec(amplitude = if (isPlaying) 4.dp else 0.dp, strokeWidth = 3.dp, wavelength = 36.dp))
+                    SliderStyle.SLIM -> Slider((sliderPosition ?: position).toFloat(), onValueChange = { sliderPosition = it.toLong() }, onValueChangeFinished = { sliderPosition?.let { playerConnection.player.seekTo(it); position = it }; sliderPosition = null }, valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()), colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f)), thumb = { Spacer(Modifier.size(0.dp)) }, track = { sliderState -> PlayerSliderTrack(sliderState = sliderState, colors = SliderDefaults.colors(activeTrackColor = textBackgroundColor, inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f))) }, modifier = Modifier.padding(horizontal = 16.dp))
                 }
                 Spacer(Modifier.height(4.dp))
                 Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
