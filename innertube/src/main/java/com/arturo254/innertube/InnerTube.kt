@@ -137,7 +137,7 @@ class InnerTube {
     private fun HttpRequestBuilder.ytClient(
         client: YouTubeClient, 
         setLogin: Boolean = false,
-        visitorDataOverride: String? = null // FIX: Default to null to bypass bot-checks globally
+        visitorDataOverride: String? = null // Default to null to globally bypass visitorData tracking restrictions
     ) {
         contentType(ContentType.Application.Json)
         headers {
@@ -188,7 +188,6 @@ class InnerTube {
         continuation: String? = null,
     ) = withRetry {
         httpClient.post("search") {
-            // FIX: Explicitly disable login and omit visitorData for searches to bypass "Reload page" bot-check error
             ytClient(client, setLogin = false, visitorDataOverride = null) 
             setBody(
                 SearchBody(
@@ -214,11 +213,12 @@ class InnerTube {
         poToken: String? = null,
     ) = withRetry {
         httpClient.post("player") {
-            // FIX: Explicitly disable login and omit visitorData for player to bypass "Reload page" playback bot-check
-            ytClient(client, setLogin = false, visitorDataOverride = null)
+            // Re-enabled setLogin = true to fix the "Please sign in" error, kept visitorData null to bypass bot check
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 PlayerBody(
-                    context = client.toContext(locale, null, null).let {
+                    // Included dataSyncId to retain account features
+                    context = client.toContext(locale, null, dataSyncId).let {
                         if (client.isEmbedded) {
                             it.copy(
                                 thirdParty = Context.ThirdParty(
@@ -271,7 +271,6 @@ class InnerTube {
         setLogin: Boolean = false,
     ) = withRetry {
         httpClient.post("browse") {
-            // FIX: Omit visitorData for browse to bypass bot checks
             ytClient(client, setLogin = setLogin || useLoginForBrowse, visitorDataOverride = null)
             setBody(
                 BrowseBody(
@@ -298,7 +297,6 @@ class InnerTube {
         continuation: String? = null,
     ) = withRetry {
         httpClient.post("next") {
-            // FIX: Omit visitorData for next requests to bypass bot checks
             ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 NextBody(
