@@ -134,7 +134,11 @@ class InnerTube {
         }
     }
 
-    private fun HttpRequestBuilder.ytClient(client: YouTubeClient, setLogin: Boolean = false) {
+    private fun HttpRequestBuilder.ytClient(
+        client: YouTubeClient, 
+        setLogin: Boolean = false,
+        visitorDataOverride: String? = this@InnerTube.visitorData
+    ) {
         contentType(ContentType.Application.Json)
         headers {
             append("X-Goog-Api-Format-Version", "1")
@@ -142,7 +146,7 @@ class InnerTube {
             append("X-YouTube-Client-Version", client.clientVersion)
             append("X-Origin", YouTubeClient.ORIGIN_YOUTUBE_MUSIC)
             append("Referer", YouTubeClient.REFERER_YOUTUBE_MUSIC)
-            visitorData?.let { append("X-Goog-Visitor-Id", it) }
+            visitorDataOverride?.let { append("X-Goog-Visitor-Id", it) }
             if (setLogin && client.loginSupported) {
                 cookie?.let { cookie ->
                     append("cookie", cookie)
@@ -184,13 +188,14 @@ class InnerTube {
         continuation: String? = null,
     ) = withRetry {
         httpClient.post("search") {
-            ytClient(client, setLogin = false) // FIX: Explicitly disable login for searches
+            // FIX: Explicitly disable login and omit visitorData for searches to bypass "Reload page" bot-check error
+            ytClient(client, setLogin = false, visitorDataOverride = null) 
             setBody(
                 SearchBody(
                     context = client.toContext(
                         locale,
-                        visitorData,
-                        null // FIX: Never send dataSyncId for searches
+                        null, 
+                        null 
                     ),
                     query = query,
                     params = params
@@ -326,10 +331,11 @@ class InnerTube {
         input: String,
     ) = withRetry {
         httpClient.post("music/get_search_suggestions") {
-            ytClient(client)
+            // FIX: Explicitly disable login and omit visitorData for suggestion requests too
+            ytClient(client, setLogin = false, visitorDataOverride = null)
             setBody(
                 GetSearchSuggestionsBody(
-                    context = client.toContext(locale, visitorData, null),
+                    context = client.toContext(locale, null, null),
                     input = input
                 )
             )
