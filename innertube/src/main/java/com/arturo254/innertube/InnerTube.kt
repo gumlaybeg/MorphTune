@@ -184,13 +184,13 @@ class InnerTube {
         continuation: String? = null,
     ) = withRetry {
         httpClient.post("search") {
-            ytClient(client, setLogin = useLoginForBrowse)
+            ytClient(client, setLogin = false) // FIX: Explicitly disable login for searches
             setBody(
                 SearchBody(
                     context = client.toContext(
                         locale,
                         visitorData,
-                        if (useLoginForBrowse) dataSyncId else null
+                        null // FIX: Never send dataSyncId for searches
                     ),
                     query = query,
                     params = params
