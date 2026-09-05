@@ -137,7 +137,7 @@ class InnerTube {
     private fun HttpRequestBuilder.ytClient(
         client: YouTubeClient, 
         setLogin: Boolean = false,
-        visitorDataOverride: String? = this@InnerTube.visitorData
+        visitorDataOverride: String? = null // FIX: Default to null to bypass bot-checks globally
     ) {
         contentType(ContentType.Application.Json)
         headers {
@@ -214,10 +214,11 @@ class InnerTube {
         poToken: String? = null,
     ) = withRetry {
         httpClient.post("player") {
-            ytClient(client, setLogin = true)
+            // FIX: Explicitly disable login and omit visitorData for player to bypass "Reload page" playback bot-check
+            ytClient(client, setLogin = false, visitorDataOverride = null)
             setBody(
                 PlayerBody(
-                    context = client.toContext(locale, visitorData, dataSyncId).let {
+                    context = client.toContext(locale, null, null).let {
                         if (client.isEmbedded) {
                             it.copy(
                                 thirdParty = Context.ThirdParty(
@@ -250,7 +251,7 @@ class InnerTube {
         client: YouTubeClient = YouTubeClient.WEB_REMIX,
     ) = withRetry {
         httpClient.get(url) {
-            ytClient(client, true)
+            ytClient(client, true, visitorDataOverride = null)
             parameter("ver", "2")
             parameter("c", client.clientName)
             parameter("cpn", cpn)
@@ -270,12 +271,13 @@ class InnerTube {
         setLogin: Boolean = false,
     ) = withRetry {
         httpClient.post("browse") {
-            ytClient(client, setLogin = setLogin || useLoginForBrowse)
+            // FIX: Omit visitorData for browse to bypass bot checks
+            ytClient(client, setLogin = setLogin || useLoginForBrowse, visitorDataOverride = null)
             setBody(
                 BrowseBody(
                     context = client.toContext(
                         locale,
-                        visitorData,
+                        null,
                         if (setLogin || useLoginForBrowse) dataSyncId else null
                     ),
                     browseId = browseId,
@@ -296,10 +298,11 @@ class InnerTube {
         continuation: String? = null,
     ) = withRetry {
         httpClient.post("next") {
-            ytClient(client, setLogin = true)
+            // FIX: Omit visitorData for next requests to bypass bot checks
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 NextBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     videoId = videoId,
                     playlistId = playlistId,
                     playlistSetVideoId = playlistSetVideoId,
@@ -316,10 +319,10 @@ class InnerTube {
         tokens: List<String>
     ) = withRetry {
         httpClient.post("feedback") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 FeedbackBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     feedbackTokens = tokens
                 )
             )
@@ -331,7 +334,6 @@ class InnerTube {
         input: String,
     ) = withRetry {
         httpClient.post("music/get_search_suggestions") {
-            // FIX: Explicitly disable login and omit visitorData for suggestion requests too
             ytClient(client, setLogin = false, visitorDataOverride = null)
             setBody(
                 GetSearchSuggestionsBody(
@@ -348,10 +350,10 @@ class InnerTube {
         playlistId: String?,
     ) = withRetry {
         httpClient.post("music/get_queue") {
-            ytClient(client)
+            ytClient(client, setLogin = false, visitorDataOverride = null)
             setBody(
                 GetQueueBody(
-                    context = client.toContext(locale, visitorData, null),
+                    context = client.toContext(locale, null, null),
                     videoIds = videoIds,
                     playlistId = playlistId
                 )
@@ -383,8 +385,8 @@ class InnerTube {
 
     suspend fun accountMenu(client: YouTubeClient) = withRetry {
         httpClient.post("account/account_menu") {
-            ytClient(client, setLogin = true)
-            setBody(AccountMenuBody(client.toContext(locale, visitorData, dataSyncId)))
+            ytClient(client, setLogin = true, visitorDataOverride = null)
+            setBody(AccountMenuBody(client.toContext(locale, null, dataSyncId)))
         }
     }
 
@@ -393,10 +395,10 @@ class InnerTube {
         videoId: String,
     ) = withRetry {
         httpClient.post("like/like") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 LikeBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     target = LikeBody.Target.VideoTarget(videoId)
                 )
             )
@@ -408,10 +410,10 @@ class InnerTube {
         videoId: String,
     ) = withRetry {
         httpClient.post("like/removelike") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 LikeBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     target = LikeBody.Target.VideoTarget(videoId)
                 )
             )
@@ -423,10 +425,10 @@ class InnerTube {
         channelId: String,
     ) = withRetry {
         httpClient.post("subscription/subscribe") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 SubscribeBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     channelIds = listOf(channelId)
                 )
             )
@@ -438,10 +440,10 @@ class InnerTube {
         channelId: String,
     ) = withRetry {
         httpClient.post("subscription/unsubscribe") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 SubscribeBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     channelIds = listOf(channelId)
                 )
             )
@@ -453,10 +455,10 @@ class InnerTube {
         playlistId: String,
     ) = withRetry {
         httpClient.post("like/like") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 LikeBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     target = LikeBody.Target.PlaylistTarget(playlistId)
                 )
             )
@@ -468,10 +470,10 @@ class InnerTube {
         playlistId: String,
     ) = withRetry {
         httpClient.post("like/removelike") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 LikeBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     target = LikeBody.Target.PlaylistTarget(playlistId)
                 )
             )
@@ -484,10 +486,10 @@ class InnerTube {
         videoId: String,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId.removePrefix("VL"),
                     actions = listOf(
                         Action.AddVideoAction(addedVideoId = videoId)
@@ -503,10 +505,10 @@ class InnerTube {
         addPlaylistId: String,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId.removePrefix("VL"),
                     actions = listOf(
                         Action.AddPlaylistAction(addedFullListId = addPlaylistId)
@@ -523,10 +525,10 @@ class InnerTube {
         setVideoId: String?,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId.removePrefix("VL"),
                     actions = listOf(
                         Action.RemoveVideoAction(
@@ -546,10 +548,10 @@ class InnerTube {
         successorSetVideoId: String?,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId,
                     actions = listOf(
                         Action.MoveVideoAction(
@@ -567,10 +569,10 @@ class InnerTube {
         title: String,
     ) = withRetry {
         httpClient.post("playlist/create") {
-            ytClient(client, true)
+            ytClient(client, true, visitorDataOverride = null)
             setBody(
                 CreatePlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     title = title
                 )
             )
@@ -583,10 +585,10 @@ class InnerTube {
         name: String,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId,
                     actions = listOf(
                         Action.RenamePlaylistAction(
@@ -603,7 +605,7 @@ class InnerTube {
         contentLength: Int
     ) = withRetry {
         httpClient.post("https://music.youtube.com/playlist_image_upload/playlist_custom_thumbnail") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             headers {
                 append("X-Goog-Upload-Command", "start")
                 append("X-Goog-Upload-Protocol", "resumable")
@@ -618,7 +620,7 @@ class InnerTube {
         image: ByteArray,
     ) = withRetry {
         httpClient.post("https://music.youtube.com/playlist_image_upload/playlist_custom_thumbnail") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             parameter("upload_id", uploadId)
             parameter("upload_protocol", "resumable")
             headers {
@@ -635,10 +637,10 @@ class InnerTube {
         blobId: String,
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId,
                     actions = listOf(
                         Action.SetCustomThumbnailAction(
@@ -657,10 +659,10 @@ class InnerTube {
         playlistId: String
     ) = withRetry {
         httpClient.post("browse/edit_playlist") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 EditPlaylistBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId,
                     actions = listOf(
                         Action.RemoveCustomThumbnailAction()
@@ -675,10 +677,10 @@ class InnerTube {
         playlistId: String,
     ) = withRetry {
         httpClient.post("playlist/delete") {
-            ytClient(client, setLogin = true)
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 PlaylistDeleteBody(
-                    context = client.toContext(locale, visitorData, dataSyncId),
+                    context = client.toContext(locale, null, dataSyncId),
                     playlistId = playlistId
                 )
             )
