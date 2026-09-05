@@ -136,36 +136,23 @@ class InnerTube {
 
     private fun HttpRequestBuilder.ytClient(
         client: YouTubeClient, 
-        setLogin: Boolean = false
+        setLogin: Boolean = false,
+        visitorDataOverride: String? = this@InnerTube.visitorData
     ) {
         contentType(ContentType.Application.Json)
         headers {
             append("X-Goog-Api-Format-Version", "1")
             append("X-YouTube-Client-Name", client.clientId)
             append("X-YouTube-Client-Version", client.clientVersion)
-            
-            // FIX: Identify if this is a web client and set the origin dynamically.
-            // Mobile and TV fallback clients strictly require "www.youtube.com" (or none) and their auth will fail if origin is mismatched.
-            val isMusicClient = client.clientName == "WEB_REMIX"
-            val originUrl = if (isMusicClient) YouTubeClient.ORIGIN_YOUTUBE_MUSIC else "https://www.youtube.com"
-
-            if (isMusicClient) {
-                append("X-Origin", originUrl)
-                append("Referer", YouTubeClient.REFERER_YOUTUBE_MUSIC)
-            } else if (client.clientName.startsWith("WEB")) {
-                append("X-Origin", originUrl)
-                append("Referer", "$originUrl/")
-            }
-            
-            visitorData?.let { append("X-Goog-Visitor-Id", it) }
-            
+            append("X-Origin", YouTubeClient.ORIGIN_YOUTUBE_MUSIC)
+            append("Referer", YouTubeClient.REFERER_YOUTUBE_MUSIC)
+            visitorDataOverride?.let { append("X-Goog-Visitor-Id", it) }
             if (setLogin && client.loginSupported) {
-                cookie?.let { cookieStr ->
-                    append("cookie", cookieStr)
+                cookie?.let { cookie ->
+                    append("cookie", cookie)
                     if ("SAPISID" !in cookieMap) return@let
                     val currentTime = System.currentTimeMillis() / 1000
-                    // Generate proper auth token using the dynamically matched origin for the specific client
-                    val sapisidHash = sha1("$currentTime ${cookieMap["SAPISID"]} $originUrl")
+                    val sapisidHash = sha1("$currentTime ${cookieMap["SAPISID"]} ${YouTubeClient.ORIGIN_YOUTUBE_MUSIC}")
                     append("Authorization", "SAPISIDHASH ${currentTime}_${sapisidHash}")
                 }
             }
@@ -201,12 +188,12 @@ class InnerTube {
         continuation: String? = null,
     ) = withRetry {
         httpClient.post("search") {
-            ytClient(client, setLogin = false) 
+            ytClient(client, setLogin = false)
             setBody(
                 SearchBody(
                     context = client.toContext(
                         locale,
-                        visitorData, 
+                        visitorData,
                         null 
                     ),
                     query = query,
@@ -226,10 +213,11 @@ class InnerTube {
         poToken: String? = null,
     ) = withRetry {
         httpClient.post("player") {
-            ytClient(client, setLogin = true)
+            // SURGICAL FIX: Keep login true for Premium/Age-Restricted, but explicitly nullify visitorData
+            ytClient(client, setLogin = true, visitorDataOverride = null)
             setBody(
                 PlayerBody(
-                    context = client.toContext(locale, visitorData, dataSyncId).let {
+                    context = client.toContext(locale, null, dataSyncId).let { // Also explicitly null here
                         if (client.isEmbedded) {
                             it.copy(
                                 thirdParty = Context.ThirdParty(
@@ -346,7 +334,7 @@ class InnerTube {
             ytClient(client)
             setBody(
                 GetSearchSuggestionsBody(
-                    context = client.toContext(locale, null, null),
+                    context = client.toContext(locale, visitorData, null),
                     input = input
                 )
             )
@@ -381,7 +369,7 @@ class InnerTube {
             }
             setBody(
                 GetTranscriptBody(
-                    context = client.toContext(locale, null, null),
+                    context = client.toContext(locale, visitorData, null),
                     params = Base64.Default.encode(
                         "\n${11.toChar()}$videoId".encodeToByteArray()
                     )
